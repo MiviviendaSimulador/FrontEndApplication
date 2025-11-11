@@ -11,6 +11,133 @@ export enum TipoDeVivienda {
     Sostenible
 }
 
+interface TipoCambioResponse {
+    buy_price: string;
+    sell_price: string;
+    base_currency: string;
+    quote_currency: string;
+    date: string;
+}
+
+export class currencySwitch {
+    private static readonly API_KEY = process.env.API_KEY_DECOLECTA;
+    private static readonly API_URL = 'https://api.decolecta.com/v1/tipo-cambio/sbs/average';
+    
+    /**
+     * Obtiene la tasa de cambio promedio de SBS desde la API de Decolecta
+     * @returns Promise<number> - Tasa de cambio promedio (promedio entre compra y venta)
+     */
+    public static async obtenerTasaDeCambioSBS(): Promise<number> {
+        try {
+            const response = await fetch(this.API_URL, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.API_KEY}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error al obtener tasa de cambio: ${response.status} ${response.statusText}`);
+            }
+
+            const data: TipoCambioResponse = await response.json();
+            
+            // Calcular promedio entre precio de compra y venta
+            const buyPrice = parseFloat(data.buy_price);
+            const sellPrice = parseFloat(data.sell_price);
+            const promedio = (buyPrice + sellPrice) / 2;
+            
+            console.log('[currencySwitch] Tasa de cambio obtenida:', {
+                buy_price: buyPrice,
+                sell_price: sellPrice,
+                promedio: promedio,
+                fecha: data.date
+            });
+            
+            return promedio;
+            
+        } catch (error) {
+            console.error('[currencySwitch] Error al obtener tasa de cambio:', error);
+            throw new Error('No se pudo obtener la tasa de cambio de SBS');
+        }
+    }
+    
+    /**
+     * Obtiene la tasa de cambio de compra (para convertir PEN a USD)
+     * @returns Promise<number> - Tasa de cambio de compra
+     */
+    public static async obtenerTasaCompra(): Promise<number> {
+        try {
+            const response = await fetch(this.API_URL, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.API_KEY}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error al obtener tasa de cambio: ${response.status} ${response.statusText}`);
+            }
+
+            const data: TipoCambioResponse = await response.json();
+            return parseFloat(data.buy_price);
+            
+        } catch (error) {
+            console.error('[currencySwitch] Error al obtener tasa de compra:', error);
+            throw new Error('No se pudo obtener la tasa de cambio de compra');
+        }
+    }
+    
+    /**
+     * Obtiene la tasa de cambio de venta (para convertir USD a PEN)
+     * @returns Promise<number> - Tasa de cambio de venta
+     */
+    public static async obtenerTasaVenta(): Promise<number> {
+        try {
+            const response = await fetch(this.API_URL, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this.API_KEY}`,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error al obtener tasa de cambio: ${response.status} ${response.statusText}`);
+            }
+
+            const data: TipoCambioResponse = await response.json();
+            return parseFloat(data.sell_price);
+            
+        } catch (error) {
+            console.error('[currencySwitch] Error al obtener tasa de venta:', error);
+            throw new Error('No se pudo obtener la tasa de cambio de venta');
+        }
+    }
+    
+    /**
+     * Convierte PEN (Soles) a USD (Dólares)
+     * @param montoPEN - Monto en soles peruanos
+     * @returns Promise<number> - Monto convertido a dólares
+     */
+    public static async PENtoUSD(montoPEN: number): Promise<number> {
+        const tasaCompra = await this.obtenerTasaCompra();
+        return montoPEN / tasaCompra;
+    }
+    
+    /**
+     * Convierte USD (Dólares) a PEN (Soles)
+     * @param montoUSD - Monto en dólares
+     * @returns Promise<number> - Monto convertido a soles
+     */
+    public static async USDtoPEN(montoUSD: number): Promise<number> {
+        const tasaVenta = await this.obtenerTasaVenta();
+        return montoUSD * tasaVenta;
+    }
+}
+
 export class BBPCalc {
     private valorVivienda: number;
     private tipoDeVivienda: TipoDeVivienda;
@@ -20,11 +147,7 @@ export class BBPCalc {
     private migrantesRetornados: boolean;
     private personaConDiscapacidad: boolean;
     private currency: string;
-
-    private fromPENtoUSD(value: number){
-
-    }
-
+    private tasaCompra: number;
 
     private calcularRango(): RangosDeVivienda {
         let rangos = [
@@ -35,7 +158,10 @@ export class BBPCalc {
             { min: 362101, max: 488800, rango: RangosDeVivienda.R5 }
         ];
         if (this.currency == 'USD'){
-            rangos.forEach(val => val.min = );
+            rangos.forEach(rango => {
+                rango.min = rango.min / this.tasaCompra;
+                rango.max = rango.max / this.tasaCompra;
+            });
         }
         const rangoEncontrado = rangos.find(r => this.valorVivienda >= r.min && this.valorVivienda <= r.max);
         if (!rangoEncontrado) {
@@ -75,6 +201,9 @@ export class BBPCalc {
         };
 
         const tipo = tipoDeVivienda === TipoDeVivienda.Tradicional ? 'tradicional' : 'sostenible';
+        if (this.currency == 'USD'){
+            return valoresBBP[tipo][this.rango] / this.tasaCompra;
+        }
         return valoresBBP[tipo][this.rango];
     }
     private _valorDelBono: number;
@@ -83,7 +212,20 @@ export class BBPCalc {
         return this.ingresos <= 4746 || this.adultoMayor || this.personaDesplazada || this.migrantesRetornados || this.personaConDiscapacidad;
     }
 
-    public constructor(valorVivienda: number, tipoDeVivienda: TipoDeVivienda, ingresos: number, adultoMayor: boolean, personaDesplazada: boolean, migrantesRetornados: boolean, personaConDiscapacidad: boolean, currency: string) {
+    /**
+     * Constructor privado - solo se usa internamente desde el factory method
+     */
+    private constructor(
+        valorVivienda: number, 
+        tipoDeVivienda: TipoDeVivienda, 
+        ingresos: number, 
+        adultoMayor: boolean, 
+        personaDesplazada: boolean, 
+        migrantesRetornados: boolean, 
+        personaConDiscapacidad: boolean, 
+        currency: string,
+        tasaCompra: number
+    ) {
         this.valorVivienda = valorVivienda;
         this.tipoDeVivienda = tipoDeVivienda;
         this.ingresos = ingresos;
@@ -91,17 +233,55 @@ export class BBPCalc {
         this.personaDesplazada = personaDesplazada;
         this.migrantesRetornados = migrantesRetornados;
         this.personaConDiscapacidad = personaConDiscapacidad;
-        this.currency = currency
+        this.currency = currency;
+        this.tasaCompra = tasaCompra;
 
         this.rango = this.calcularRango();
         this._valorDelBono = this.valorDelBono(this.tipoDeVivienda);
 
-
         console.log('[BBPCalc] Inicializando cálculo de BBP:', {
             valorVivienda: this.valorVivienda,
             tipoDeVivienda: TipoDeVivienda[this.tipoDeVivienda],
-            ingresos: this.ingresos
+            ingresos: this.ingresos,
+            currency: this.currency,
+            tasaCompra: this.tasaCompra
         });
+    }
+
+    /**
+     * Factory method estático para crear instancias de BBPCalc
+     * Obtiene la tasa de cambio automáticamente cuando es necesario
+     * @returns Promise<BBPCalc> - Instancia de BBPCalc inicializada
+     */
+    public static async crear(
+        valorVivienda: number,
+        tipoDeVivienda: TipoDeVivienda,
+        ingresos: number,
+        adultoMayor: boolean,
+        personaDesplazada: boolean,
+        migrantesRetornados: boolean,
+        personaConDiscapacidad: boolean,
+        currency: string
+    ): Promise<BBPCalc> {
+        // Obtener la tasa de cambio solo si la moneda es USD
+        // Si es PEN, usar 1 como tasa (no se necesita conversión)
+        let tasaCompra = 1;
+        if (currency === 'USD') {
+            tasaCompra = await currencySwitch.obtenerTasaCompra();
+        }
+        
+        // Crear y retornar la instancia
+        return new BBPCalc(
+            valorVivienda,
+            tipoDeVivienda,
+            ingresos,
+            adultoMayor,
+            personaDesplazada,
+            migrantesRetornados,
+            personaConDiscapacidad,
+            currency,
+            tasaCompra
+        );
     }
 
     public CalculoDeBono(): number {
@@ -116,3 +296,4 @@ export class BBPCalc {
 
 
 }
+

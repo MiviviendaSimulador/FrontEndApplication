@@ -36,58 +36,63 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
   } | null>(null);
 
   useEffect(() => {
-    const downPaymentAmount = formData.downPaymentType === 'percentage' 
-      ? (formData.propertyPrice * formData.downPayment / 100)
-      : formData.downPayment;
+    const calcularPreview = async () => {
+      const downPaymentAmount = formData.downPaymentType === 'percentage' 
+        ? (formData.propertyPrice * formData.downPayment / 100)
+        : formData.downPayment;
+      
+      const financedAmountBeforeBBP = formData.propertyPrice - downPaymentAmount;
+      /*
+      const maxBBP = formData.currency === 'PEN' ? 25500 : 7000;
+      const bbp = Math.min(financedAmountBeforeBBP * 0.05, maxBBP);
+      const financedAmount = financedAmountBeforeBBP - bbp;*/
+        // Usar BBPCalc para calcular el BBP correcto
+        const tipoVivienda = (formData.tipoVivienda === 'Sostenible')
+            ? TipoDeVivienda.Sostenible
+            : TipoDeVivienda.Tradicional;  // Por defecto Tradicional
+
+        const ingresos = formData.ingresos || 5000;  // Valor fuera del rango del integrador (<= 4746)
+        const adultoMayor = formData.adultoMayor || false;
+        const personaDesplazada = formData.personaDesplazada || false;
+        const migrantesRetornados = formData.migrantesRetornados || false;
+        const personaConDiscapacidad = formData.personaConDiscapacidad || false;
+
+        const bbpCalc = await BBPCalc.crear(
+            formData.propertyPrice,  // Usar propertyPrice, no financedAmountBeforeBBP
+            tipoVivienda,
+            ingresos,
+            adultoMayor,
+            personaDesplazada,
+            migrantesRetornados,
+            personaConDiscapacidad,
+            formData.currency
+        );
+
+        const bbp = bbpCalc.CalculoDeBono();
+        const financedAmount = financedAmountBeforeBBP - bbp;
+
+        let monthlyRate: number;
+        if (formData.rateType === 'TEA') {
+          monthlyRate = Math.pow(1 + formData.rate / 100, 1 / 12) - 1;
+        } else {
+          const periodicRate = formData.rate / 100 / (formData.capitalizationsPerYear || 12);
+          const periodsPerMonth = (formData.capitalizationsPerYear || 12) / 12;
+          monthlyRate = Math.pow(1 + periodicRate, periodsPerMonth) - 1;
+        }
+
+        setPreviewMetrics({
+          bbp,
+          financedAmount,
+          monthlyRate: monthlyRate * 100
+        });
+    };
     
-    const financedAmountBeforeBBP = formData.propertyPrice - downPaymentAmount;
-    /*
-    const maxBBP = formData.currency === 'PEN' ? 25500 : 7000;
-    const bbp = Math.min(financedAmountBeforeBBP * 0.05, maxBBP);
-    const financedAmount = financedAmountBeforeBBP - bbp;*/
-      // Usar BBPCalc para calcular el BBP correcto
-      const tipoVivienda = (formData.tipoVivienda === 'Sostenible')
-          ? TipoDeVivienda.Sostenible
-          : TipoDeVivienda.Tradicional;  // Por defecto Tradicional
-
-      const ingresos = formData.ingresos || 5000;  // Valor fuera del rango del integrador (<= 4746)
-      const adultoMayor = formData.adultoMayor || false;
-      const personaDesplazada = formData.personaDesplazada || false;
-      const migrantesRetornados = formData.migrantesRetornados || false;
-      const personaConDiscapacidad = formData.personaConDiscapacidad || false;
-
-      const bbpCalc = new BBPCalc(
-          formData.propertyPrice,  // Usar propertyPrice, no financedAmountBeforeBBP
-          tipoVivienda,
-          ingresos,
-          adultoMayor,
-          personaDesplazada,
-          migrantesRetornados,
-          personaConDiscapacidad
-      );
-
-      const bbp = bbpCalc.CalculoDeBono();
-      const financedAmount = financedAmountBeforeBBP - bbp;
-
-    let monthlyRate: number;
-    if (formData.rateType === 'TEA') {
-      monthlyRate = Math.pow(1 + formData.rate / 100, 1 / 12) - 1;
-    } else {
-      const periodicRate = formData.rate / 100 / (formData.capitalizationsPerYear || 12);
-      const periodsPerMonth = (formData.capitalizationsPerYear || 12) / 12;
-      monthlyRate = Math.pow(1 + periodicRate, periodsPerMonth) - 1;
-    }
-
-    setPreviewMetrics({
-      bbp,
-      financedAmount,
-      monthlyRate: monthlyRate * 100
-    });
+    calcularPreview();
   }, [formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const results = calculateFinancialMetrics(formData);
+    const results = await calculateFinancialMetrics(formData);
     onSubmit(formData, results);
   };
 

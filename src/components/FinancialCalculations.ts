@@ -1,7 +1,7 @@
 import { SimulationData, CalculationResults, ScheduleRow } from '../App';
 import {BBPCalc, TipoDeVivienda} from "../domain/BBPCalc";
 
-export function calculateFinancialMetrics(data: SimulationData): CalculationResults {
+export async function calculateFinancialMetrics(data: SimulationData): Promise<CalculationResults> {
   // Calcular valores básicos
   const downPaymentAmount = data.downPaymentType === 'percentage' 
     ? (data.propertyPrice * data.downPayment / 100)
@@ -11,7 +11,7 @@ export function calculateFinancialMetrics(data: SimulationData): CalculationResu
   
   // Calcular BBP (Bono Buen Pagador) - simulamos el cálculo
   //const bbp = calculateBBP(financedAmountBeforeBBP, data.currency);
-  const bbp = calculateBBP(data.propertyPrice, data.currency, data);
+  const bbp = await calculateBBP(data.propertyPrice, data.currency, data);
   const financedAmount = financedAmountBeforeBBP - bbp;
 
   // Convertir tasa a mensual
@@ -57,11 +57,11 @@ function calculateBBP(financedAmount: number, currency: string): number {
   return Math.min(financedAmount * bbpPercentage, maxBBP);
 }*/
 
-function calculateBBP(
+async function calculateBBP(
     propertyPrice: number,  // Cambiar: usar propertyPrice, no financedAmount
     currency: 'PEN' | 'USD',
     data: SimulationData  // Pasar todo el objeto para acceder a los nuevos campos
-): number {
+): Promise<number> {
     // Valores por defecto si no se proporcionan
     const tipoVivienda = data.tipoVivienda === 'Sostenible'
         ? TipoDeVivienda.Sostenible
@@ -73,15 +73,16 @@ function calculateBBP(
     const migrantesRetornados = data.migrantesRetornados || false;
     const personaConDiscapacidad = data.personaConDiscapacidad || false;
 
-    // Crear instancia de BBPCalc
-    const bbpCalc = new BBPCalc(
+    // Crear instancia de BBPCalc usando el factory method
+    const bbpCalc = await BBPCalc.crear(
         propertyPrice,
         tipoVivienda,
         ingresos,
         adultoMayor,
         personaDesplazada,
         migrantesRetornados,
-        personaConDiscapacidad
+        personaConDiscapacidad,
+        currency
     );
 
     // Calcular y retornar el bono

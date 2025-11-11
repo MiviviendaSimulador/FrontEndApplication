@@ -28,8 +28,8 @@ export function CompareScenarios({ baseScenario, onBack }: CompareScenariosProps
     return `${value.toFixed(2)}%`;
   };
 
-  const handleRecalculate = () => {
-    const newResults = calculateFinancialMetrics(cloneData);
+  const handleRecalculate = async () => {
+    const newResults = await calculateFinancialMetrics(cloneData);
     setCloneResults(newResults);
   };
 
