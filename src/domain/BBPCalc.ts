@@ -157,7 +157,7 @@ export class BBPCalc {
             { min: 244601, max: 362100, rango: RangosDeVivienda.R4 },
             { min: 362101, max: 488800, rango: RangosDeVivienda.R5 }
         ];
-        if (this.currency == 'USD'){
+        if (this.currency === 'USD'){
             rangos.forEach(rango => {
                 rango.min = rango.min / this.tasaCompra;
                 rango.max = rango.max / this.tasaCompra;
@@ -201,12 +201,21 @@ export class BBPCalc {
         };
 
         const tipo = tipoDeVivienda === TipoDeVivienda.Tradicional ? 'tradicional' : 'sostenible';
-        if (this.currency == 'USD'){
+        if (this.currency === 'USD'){
             return valoresBBP[tipo][this.rango] / this.tasaCompra;
         }
         return valoresBBP[tipo][this.rango];
     }
     private _valorDelBono: number;
+
+    private calcularBonoIntegrado(): number {
+        const BONO_INTEGRADO_PEN = 3600;
+        if (this.currency === 'USD') {
+            return BONO_INTEGRADO_PEN / this.tasaCompra;
+        }
+        return BONO_INTEGRADO_PEN;
+    }
+    private _bonoIntegrado: number;
 
     private aplicaIntegrado(): boolean{
         return this.ingresos <= 4746 || this.adultoMayor || this.personaDesplazada || this.migrantesRetornados || this.personaConDiscapacidad;
@@ -238,6 +247,7 @@ export class BBPCalc {
 
         this.rango = this.calcularRango();
         this._valorDelBono = this.valorDelBono(this.tipoDeVivienda);
+        this._bonoIntegrado = this.calcularBonoIntegrado();
 
         console.log('[BBPCalc] Inicializando cálculo de BBP:', {
             valorVivienda: this.valorVivienda,
@@ -288,7 +298,7 @@ export class BBPCalc {
         let bono = this._valorDelBono;
         console.log('[BBPCalc] Valor del Bono antes de integrado:', bono);
         if (this.aplicaIntegrado() && this.rango!==RangosDeVivienda.R5) {
-            bono += 3600;
+            bono += this._bonoIntegrado;
         }
         return bono;
     }
