@@ -33,7 +33,7 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
     adminFeesPerPeriod: 40,
     periodicCommissionPerPeriod: 0,
     periodicCostFrequencyPerYear: 12,
-    periodicRatesArePerPeriod: false
+    periodicRatesArePerPeriod: false,
     // Valores iniciales razonables para el perfil del cliente
     ingresos: 3000,
     edad: 30,
