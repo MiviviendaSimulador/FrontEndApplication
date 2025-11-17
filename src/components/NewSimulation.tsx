@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Separator } from './ui/separator';
 import { Calculator } from 'lucide-react';
 import { SimulationData, CalculationResults } from '../App';
-import { calculateFinancialMetrics } from './FinancialCalculations';
-import {BBPCalc, TipoDeVivienda} from "../domain/BBPCalc";
+import { calculateFinancialMetrics, calculateBBP } from './FinancialCalculations';
+import { Checkbox } from './ui/checkbox';
 
 interface NewSimulationProps {
   onSubmit: (data: SimulationData, results: CalculationResults) => void;
@@ -34,6 +34,18 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
     periodicCommissionPerPeriod: 0,
     periodicCostFrequencyPerYear: 12,
     periodicRatesArePerPeriod: false
+    // Valores iniciales razonables para el perfil del cliente
+    ingresos: 3000,
+    edad: 30,
+    tipoVivienda: 'Tradicional',
+    zona: 'urbana',
+    numeroIntegrantesHogar: 3,
+    numeroMenores: 0,
+    nivelIngresoDeclarado: 'medio',
+    adultoMayor: false,
+    personaDesplazada: false,
+    migrantesRetornados: false,
+    personaConDiscapacidad: false,
   });
 
   const [previewMetrics, setPreviewMetrics] = useState<{
@@ -49,34 +61,10 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
         : formData.downPayment;
       
       const financedAmountBeforeBBP = formData.propertyPrice - downPaymentAmount;
-      /*
-      const maxBBP = formData.currency === 'PEN' ? 25500 : 7000;
-      const bbp = Math.min(financedAmountBeforeBBP * 0.05, maxBBP);
-      const financedAmount = financedAmountBeforeBBP - bbp;*/
-        // Usar BBPCalc para calcular el BBP correcto
-        const tipoVivienda = (formData.tipoVivienda === 'Sostenible')
-            ? TipoDeVivienda.Sostenible
-            : TipoDeVivienda.Tradicional;  // Por defecto Tradicional
 
-        const ingresos = formData.ingresos || 5000;  // Valor fuera del rango del integrador (<= 4746)
-        const adultoMayor = formData.adultoMayor || false;
-        const personaDesplazada = formData.personaDesplazada || false;
-        const migrantesRetornados = formData.migrantesRetornados || false;
-        const personaConDiscapacidad = formData.personaConDiscapacidad || false;
-
-        const bbpCalc = await BBPCalc.crear(
-            formData.propertyPrice,  // Usar propertyPrice, no financedAmountBeforeBBP
-            tipoVivienda,
-            ingresos,
-            adultoMayor,
-            personaDesplazada,
-            migrantesRetornados,
-            personaConDiscapacidad,
-            formData.currency
-        );
-
-        const bbp = bbpCalc.CalculoDeBono();
-        const financedAmount = financedAmountBeforeBBP - bbp;
+      // Calcular BBP usando la misma lógica central que en los cálculos finales
+      const bbp = await calculateBBP(formData.propertyPrice, formData.currency, formData);
+      const financedAmount = financedAmountBeforeBBP - bbp;
 
         let monthlyRate: number;
         if (formData.rateType === 'TEA') {
@@ -120,7 +108,226 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {}
+            {/* Datos del Cliente */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Datos del Cliente</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edad">Edad</Label>
+                    <Input
+                      id="edad"
+                      type="number"
+                      value={formData.edad ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? undefined : Number(e.target.value);
+                        updateFormData({ edad: value });
+                      }}
+                      min={18}
+                      max={100}
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ingresos">Ingresos mensuales del hogar</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="ingresos"
+                        type="number"
+                        className="pl-8"
+                        value={formData.ingresos ?? ''}
+                        onChange={(e) => {
+                          const value = e.target.value === '' ? undefined : Number(e.target.value);
+                          updateFormData({ ingresos: value });
+                        }}
+                        min={0}
+                        step={100}
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="departamento">Departamento</Label>
+                    <Input
+                      id="departamento"
+                      type="text"
+                      value={formData.departamento ?? ''}
+                      onChange={(e) => updateFormData({ departamento: e.target.value || undefined })}
+                      placeholder="Ej: Lima"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="provincia">Provincia</Label>
+                    <Input
+                      id="provincia"
+                      type="text"
+                      value={formData.provincia ?? ''}
+                      onChange={(e) => updateFormData({ provincia: e.target.value || undefined })}
+                      placeholder="Ej: Lima"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="distrito">Distrito</Label>
+                    <Input
+                      id="distrito"
+                      type="text"
+                      value={formData.distrito ?? ''}
+                      onChange={(e) => updateFormData({ distrito: e.target.value || undefined })}
+                      placeholder="Ej: Comas"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="zona">Zona</Label>
+                    <Select
+                      value={formData.zona ?? 'urbana'}
+                      onValueChange={(value: 'urbana' | 'rural') => updateFormData({ zona: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="urbana">Urbana</SelectItem>
+                        <SelectItem value="rural">Rural</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Condición especial</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className="flex items-center space-x-2">
+                        <Checkbox
+                          id="adultoMayor"
+                          checked={!!formData.adultoMayor}
+                          onCheckedChange={(checked) =>
+                            updateFormData({ adultoMayor: checked === true })
+                          }
+                        />
+                        <span className="text-sm">Adulto mayor</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <Checkbox
+                          id="personaDesplazada"
+                          checked={!!formData.personaDesplazada}
+                          onCheckedChange={(checked) =>
+                            updateFormData({ personaDesplazada: checked === true })
+                          }
+                        />
+                        <span className="text-sm">Persona desplazada</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <Checkbox
+                          id="migrantesRetornados"
+                          checked={!!formData.migrantesRetornados}
+                          onCheckedChange={(checked) =>
+                            updateFormData({ migrantesRetornados: checked === true })
+                          }
+                        />
+                        <span className="text-sm">Migrante retornado</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <Checkbox
+                          id="personaConDiscapacidad"
+                          checked={!!formData.personaConDiscapacidad}
+                          onCheckedChange={(checked) =>
+                            updateFormData({ personaConDiscapacidad: checked === true })
+                          }
+                        />
+                        <span className="text-sm">Persona con discapacidad</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="numeroIntegrantesHogar">Número de integrantes del hogar</Label>
+                    <Input
+                      id="numeroIntegrantesHogar"
+                      type="number"
+                      value={formData.numeroIntegrantesHogar ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? undefined : Number(e.target.value);
+                        updateFormData({ numeroIntegrantesHogar: value });
+                      }}
+                      min={1}
+                      max={15}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numeroMenores">Número de menores de 18 años</Label>
+                    <Input
+                      id="numeroMenores"
+                      type="number"
+                      value={formData.numeroMenores ?? ''}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? undefined : Number(e.target.value);
+                        updateFormData({ numeroMenores: value });
+                      }}
+                      min={0}
+                      max={10}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ocupacionPrincipal">Ocupación principal</Label>
+                    <Input
+                      id="ocupacionPrincipal"
+                      type="text"
+                      value={formData.ocupacionPrincipal ?? ''}
+                      onChange={(e) => updateFormData({ ocupacionPrincipal: e.target.value || undefined })}
+                      placeholder="Ej: Empleado, independiente"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nivelEducativo">Nivel educativo</Label>
+                    <Input
+                      id="nivelEducativo"
+                      type="text"
+                      value={formData.nivelEducativo ?? ''}
+                      onChange={(e) => updateFormData({ nivelEducativo: e.target.value || undefined })}
+                      placeholder="Ej: Superior, técnico"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nivelIngresoDeclarado">Nivel de ingreso declarado</Label>
+                    <Select
+                      value={formData.nivelIngresoDeclarado ?? 'medio'}
+                      onValueChange={(value: 'bajo' | 'medio' | 'alto') =>
+                        updateFormData({ nivelIngresoDeclarado: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bajo">Bajo</SelectItem>
+                        <SelectItem value="medio">Medio</SelectItem>
+                        <SelectItem value="alto">Alto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Datos de la Vivienda */}
             <Card>
               <CardHeader>
                 <CardTitle>Datos de la Vivienda</CardTitle>

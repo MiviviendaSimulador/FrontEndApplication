@@ -75,36 +75,131 @@ function calculateBBP(financedAmount: number, currency: string): number {
   return Math.min(financedAmount * bbpPercentage, maxBBP);
 }*/
 
-async function calculateBBP(
-    propertyPrice: number,  // Cambiar: usar propertyPrice, no financedAmount
-    currency: 'PEN' | 'USD',
-    data: SimulationData  // Pasar todo el objeto para acceder a los nuevos campos
+/**
+ * Aplica ajustes adicionales al BBP base en función del perfil del usuario.
+ *
+ * La idea es personalizar el resultado de forma controlada sin romper
+ * la lógica central de BBPCalc ni los rangos oficiales. Todos los ajustes
+ * son multiplicativos y acotados para evitar valores extremos.
+ */
+function applyUserProfileAdjustments(baseBBP: number, data: SimulationData): number {
+  let adjustmentFactor = 1;
+
+  // Ajuste por edad: se refuerza ligeramente el bono para adultos mayores
+  if (typeof data.edad === 'number' && data.edad >= 60) {
+    adjustmentFactor += 0.05; // +5%
+  }
+
+  // Ajuste por ubicación: zonas rurales o departamentos priorizados
+  const departamentosPriorizados = [
+    'Amazonas',
+    'Apurímac',
+    'Ayacucho',
+    'Huancavelica',
+    'Huánuco',
+    'Loreto',
+    'Madre de Dios',
+    'Pasco',
+    'Puno',
+    'Ucayali',
+  ];
+
+  const departamentoNormalizado = data.departamento?.toLowerCase();
+  const esDeptoPriorizado = departamentoNormalizado
+    ? departamentosPriorizados.some((d) => d.toLowerCase() === departamentoNormalizado)
+    : false;
+
+  if (data.zona === 'rural' || esDeptoPriorizado) {
+    adjustmentFactor += 0.05; // +5%
+  }
+
+  // Ajuste por composición familiar e ingreso
+  const integrantes = data.numeroIntegrantesHogar ?? 0;
+  const menores = data.numeroMenores ?? 0;
+  const ingresos = data.ingresos ?? 0;
+  const nivelIngreso = data.nivelIngresoDeclarado;
+  const esIngresoBajo = nivelIngreso === 'bajo' || (ingresos > 0 && ingresos <= 2500);
+
+  if (integrantes >= 4 && (menores >= 2 || esIngresoBajo)) {
+    adjustmentFactor += 0.05; // +5%
+  }
+
+  // Ajuste adicional si hay múltiples condiciones especiales
+  const condicionesEspeciales = [
+    data.adultoMayor,
+    data.personaDesplazada,
+    data.migrantesRetornados,
+    data.personaConDiscapacidad,
+  ].filter(Boolean).length;
+
+  if (condicionesEspeciales >= 2) {
+    adjustmentFactor += 0.03; // +3%
+  }
+
+  // Limitar el factor total para mantener coherencia
+  adjustmentFactor = Math.min(adjustmentFactor, 1.15); // Máx. +15%
+
+  const adjusted = baseBBP * adjustmentFactor;
+  return Math.max(0, adjusted);
+}
+
+/**
+ * Calcula el Bono del Buen Pagador (BBP) utilizando BBPCalc como motor central
+ * y aplicando ajustes suaves basados en el perfil del usuario.
+ *
+ * Pruebas manuales sugeridas (resultados relativos, no exactos):
+ *
+ * 1) Perfil base (joven, zona urbana, ingresos medios):
+ *    - edad: 30, zona: 'urbana', ingresos: 3000, sin condiciones especiales.
+ *    - Esperado: BBP = BBP base (factor ~1.00).
+ *
+ * 2) Adulto mayor en zona rural con ingresos bajos y familia numerosa:
+ *    - edad: 65, zona: 'rural', ingresos: 1800,
+ *      numeroIntegrantesHogar: 5, numeroMenores: 2,
+ *      adultoMayor: true.
+ *    - Esperado: BBP mayor que en el caso base (incremento relativo ~10-15%).
+ *
+ * 3) Persona desplazada con múltiples condiciones especiales:
+ *    - personaDesplazada: true, personaConDiscapacidad: true,
+ *      ingresos <= 2500.
+ *    - Esperado: BBP > BBP del perfil base y <= 15% por encima del bono base
+ *      retornado por BBPCalc.
+ */
+export async function calculateBBP(
+  propertyPrice: number, // Se usa el valor de la vivienda, no el monto financiado
+  currency: 'PEN' | 'USD',
+  data: SimulationData // Se pasa todo el objeto para acceder a los nuevos campos
 ): Promise<number> {
-    // Valores por defecto si no se proporcionan
-    const tipoVivienda = data.tipoVivienda === 'Sostenible'
-        ? TipoDeVivienda.Sostenible
-        : TipoDeVivienda.Tradicional;  // Por defecto Tradicional
+  // Valores por defecto si no se proporcionan
+  const tipoVivienda = data.tipoVivienda === 'Sostenible'
+    ? TipoDeVivienda.Sostenible
+    : TipoDeVivienda.Tradicional; // Por defecto Tradicional
 
-    const ingresos = data.ingresos || 5000;  // Valor fuera del rango del integrador (<= 4746)
-    const adultoMayor = data.adultoMayor || false;
-    const personaDesplazada = data.personaDesplazada || false;
-    const migrantesRetornados = data.migrantesRetornados || false;
-    const personaConDiscapacidad = data.personaConDiscapacidad || false;
+  const ingresos = data.ingresos ?? 5000; // Valor seguro si no se capturó ingresos
 
-    // Crear instancia de BBPCalc usando el factory method
-    const bbpCalc = await BBPCalc.crear(
-        propertyPrice,
-        tipoVivienda,
-        ingresos,
-        adultoMayor,
-        personaDesplazada,
-        migrantesRetornados,
-        personaConDiscapacidad,
-        currency
-    );
+  // Considerar adulto mayor por edad aunque no se marque explícitamente el checkbox
+  const esAdultoMayor = (typeof data.edad === 'number' && data.edad >= 60) || data.adultoMayor === true;
+  const personaDesplazada = data.personaDesplazada ?? false;
+  const migrantesRetornados = data.migrantesRetornados ?? false;
+  const personaConDiscapacidad = data.personaConDiscapacidad ?? false;
 
-    // Calcular y retornar el bono
-    return bbpCalc.CalculoDeBono();
+  // Crear instancia de BBPCalc usando el factory method
+  const bbpCalc = await BBPCalc.crear(
+    propertyPrice,
+    tipoVivienda,
+    ingresos,
+    esAdultoMayor,
+    personaDesplazada,
+    migrantesRetornados,
+    personaConDiscapacidad,
+    currency
+  );
+
+  // Calcular bono base
+  const baseBBP = bbpCalc.CalculoDeBono();
+
+  // Aplicar ajustes suaves según el perfil del usuario
+  return applyUserProfileAdjustments(baseBBP, data);
 }
 
 function calculateMonthlyRate(rate: number, rateType: string, capitalizationsPerYear?: number): number {
