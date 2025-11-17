@@ -16,8 +16,8 @@ interface NewSimulationProps {
 
 export function NewSimulation({ onSubmit }: NewSimulationProps) {
   const [formData, setFormData] = useState<SimulationData>({
-    propertyPrice: 250000,
-    downPayment: 50000,
+    propertyPrice: 100000,
+    downPayment: 5000,
     downPaymentType: 'amount',
     currency: 'PEN',
     rateType: 'TEA',
@@ -26,7 +26,14 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
     termType: 'years',
     gracePeriodType: 'none',
     gracePeriodMonths: 0,
-    insuranceAndFees: 2500
+    insuranceAndFees: 2500,
+    seguroDesgravamenRate: 0.5, 
+    seguroRiesgoRate: 0.2, 
+    portesPerPeriod: 20,
+    adminFeesPerPeriod: 40,
+    periodicCommissionPerPeriod: 0,
+    periodicCostFrequencyPerYear: 12,
+    periodicRatesArePerPeriod: false
   });
 
   const [previewMetrics, setPreviewMetrics] = useState<{
@@ -341,27 +348,105 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
             </Card>
 
             {}
+            {/* Costos */}
             <Card>
               <CardHeader>
-                <CardTitle>Seguros y Cargos</CardTitle>
+                <CardTitle>Seguros y Cargos Periódicos</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="insuranceAndFees">Monto total de seguros y cargos</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
-                      {formData.currency === 'PEN' ? 'S/' : '$'}
-                    </span>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="seguroDesgravamenRate">% Seguro Desgravamen (anual)</Label>
                     <Input
-                      id="insuranceAndFees"
+                      id="seguroDesgravamenRate"
                       type="number"
-                      className="pl-8"
-                      value={formData.insuranceAndFees}
-                      onChange={(e) => updateFormData({ insuranceAndFees: Number(e.target.value) })}
+                      value={formData.seguroDesgravamenRate}
+                      onChange={(e) => updateFormData({ seguroDesgravamenRate: Number(e.target.value) })}
                       min="0"
-                      step="100"
-                      required
+                      step="0.01"
                     />
+                    <p className="text-xs text-muted-foreground">Se aplican por período según la frecuencia seleccionada.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="seguroRiesgoRate">% Seguro Riesgo (anual)</Label>
+                    <Input
+                      id="seguroRiesgoRate"
+                      type="number"
+                      value={formData.seguroRiesgoRate}
+                      onChange={(e) => updateFormData({ seguroRiesgoRate: Number(e.target.value) })}
+                      min="0"
+                      step="0.01"
+                    />
+                    <p className="text-xs text-muted-foreground">Se aplican por período según la frecuencia seleccionada.</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="periodicCostFrequencyPerYear">Frecuencia de aplicación de costos periódicos</Label>
+                  <Select
+                    value={String(formData.periodicCostFrequencyPerYear || 12)}
+                    onValueChange={(value: string) => updateFormData({ periodicCostFrequencyPerYear: Number(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="12">Mensual (12)</SelectItem>
+                      <SelectItem value="24">Quincenal (24)</SelectItem>
+                      <SelectItem value="52">Semanal (52)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="portesPerPeriod">Portes por periodo</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="portesPerPeriod"
+                        type="number"
+                        className="pl-8"
+                        value={formData.portesPerPeriod}
+                        onChange={(e) => updateFormData({ portesPerPeriod: Number(e.target.value) })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="adminFeesPerPeriod">Gastos Administración por periodo</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="adminFeesPerPeriod"
+                        type="number"
+                        className="pl-8"
+                        value={formData.adminFeesPerPeriod}
+                        onChange={(e) => updateFormData({ adminFeesPerPeriod: Number(e.target.value) })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="periodicCommissionPerPeriod">Comisión periódica</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="periodicCommissionPerPeriod"
+                        type="number"
+                        className="pl-8"
+                        value={formData.periodicCommissionPerPeriod}
+                        onChange={(e) => updateFormData({ periodicCommissionPerPeriod: Number(e.target.value) })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
                   </div>
                 </div>
               </CardContent>
