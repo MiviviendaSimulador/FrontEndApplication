@@ -25,7 +25,15 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
     termInMonths,
     data.gracePeriodType,
     data.gracePeriodMonths,
-    data.insuranceAndFees
+    data.insuranceAndFees,
+    data.propertyPrice,
+    data.seguroDesgravamenRate || 0,
+    data.seguroRiesgoRate || 0,
+    data.portesPerPeriod || 0,
+    data.adminFeesPerPeriod || 0,
+    data.periodicCommissionPerPeriod || 0,
+    data.periodicCostFrequencyPerYear || 12,
+    !!data.periodicRatesArePerPeriod
   );
 
   // Calcular métricas
@@ -37,6 +45,12 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
   const van = calculateVAN(schedule, monthlyRate);
   const tir = calculateTIR(schedule, financedAmount);
 
+  // costos periódicos
+  const totalInsuranceLife = schedule.reduce((s, r) => s + r.insuranceLife, 0);
+  const totalInsuranceRisk = schedule.reduce((s, r) => s + r.insuranceRisk, 0);
+  const totalPeriodicFees = schedule.reduce((s, r) => s + r.periodicFees, 0);
+  const totalPeriodicCosts = schedule.reduce((s, r) => s + r.totalPeriodicCosts, 0);
+
   return {
     monthlyPayment,
     totalInterest,
@@ -45,7 +59,11 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
     trea,
     van,
     tir,
-    schedule
+    schedule,
+    insuranceLife: totalInsuranceLife,
+    insuranceRisk: totalInsuranceRisk,
+    periodicFees: totalPeriodicFees,
+    totalPeriodicCosts: totalPeriodicCosts
   };
 }
 /* Version anterior
@@ -202,11 +220,28 @@ function generateSchedule(
   termInMonths: number,
   gracePeriodType: string,
   gracePeriodMonths: number,
-  insuranceAndFees: number
+  insuranceAndFees: number, // mantenido para compatibilidad (no usado en prorrateo principal)
+  propertyPrice: number,
+  seguroDesgravamenRate: number, // % anual
+  seguroRiesgoRate: number, // % anual
+  portesPerPeriod: number,
+  adminFeesPerPeriod: number,
+  periodicCommissionPerPeriod: number,
+  periodicCostFrequencyPerYear: number,
+  periodicRatesArePerPeriod: boolean
 ): ScheduleRow[] {
   const schedule: ScheduleRow[] = [];
   let balance = financedAmount;
-  const monthlyInsurance = insuranceAndFees / termInMonths;
+  // Frecuencia y periodo en días asumidos (según instrucciones)
+  const frecuenciaPago = periodicCostFrequencyPerYear || 12;
+  const periodoEnDias = 360;
+  // Tasas periódicas (convertir % anual a factor por periodo) o usar por período directo
+  const TSD = periodicRatesArePerPeriod
+    ? (seguroDesgravamenRate / 100)
+    : (seguroDesgravamenRate / 100) * (frecuenciaPago / periodoEnDias);
+  const TSR = periodicRatesArePerPeriod
+    ? (seguroRiesgoRate / 100)
+    : (seguroRiesgoRate / 100) * (frecuenciaPago / periodoEnDias);
 
   // Calcular cuota fija (después del período de gracia)
   const paymentsWithAmortization = termInMonths - (gracePeriodType === 'total' ? gracePeriodMonths : 0);
@@ -222,20 +257,27 @@ function generateSchedule(
     
     const initialBalance = balance;
     const interest = balance * monthlyRate;
+    // Seguros y cargos periódicos
+    const insuranceLife = initialBalance * TSD; // Seguro desgravamen sobre saldo inicial
+    const insuranceRisk = propertyPrice * TSR; // Seguro riesgo sobre valor de la vivienda
+    const periodicFees = portesPerPeriod + adminFeesPerPeriod + periodicCommissionPerPeriod; // Cargos fijos
+    const totalPeriodicCosts = insuranceLife + insuranceRisk + periodicFees;
     
     let amortization = 0;
-    let monthlyPayment = monthlyInsurance;
+    let monthlyPayment = 0; // se calculará según tipo de gracia
 
     if (gracePeriodType === 'none' || i > gracePeriodMonths) {
       // Período normal o después de gracia
       amortization = basePayment - interest;
-      monthlyPayment = basePayment + monthlyInsurance;
+      monthlyPayment = basePayment + totalPeriodicCosts;
     } else if (gracePeriodType === 'partial') {
       // Período de gracia parcial - solo se pagan intereses
-      monthlyPayment = interest + monthlyInsurance;
+      amortization = 0;
+      monthlyPayment = interest + totalPeriodicCosts;
     } else if (gracePeriodType === 'total') {
       // Período de gracia total - no se paga nada
-      monthlyPayment = 0;
+      amortization = 0;
+      monthlyPayment = totalPeriodicCosts; // Solo costos periódicos según nuevas reglas
     }
 
     balance = Math.max(0, balance - amortization);
@@ -246,9 +288,13 @@ function generateSchedule(
       initialBalance,
       interest,
       amortization,
-      insuranceAndFees: monthlyInsurance,
+      insuranceAndFees: totalPeriodicCosts, // mantener compatibilidad: ahora representa total periódicos
       monthlyPayment,
-      finalBalance: balance
+      finalBalance: balance,
+      insuranceLife,
+      insuranceRisk,
+      periodicFees,
+      totalPeriodicCosts
     });
   }
 
