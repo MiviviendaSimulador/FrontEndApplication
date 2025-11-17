@@ -21,13 +21,33 @@ export type SimulationData = {
   insuranceAndFees: number;
   bbp?: number;
 
-    // Nuevos campos para BBPCalc
-    tipoVivienda?: 'Tradicional' | 'Sostenible';  // Por defecto 'Tradicional'
-    ingresos?: number;  // Ingresos del usuario
-    adultoMayor?: boolean;
-    personaDesplazada?: boolean;
-    migrantesRetornados?: boolean;
-    personaConDiscapacidad?: boolean;
+  // ==============================
+  // Datos de perfil del cliente
+  // ==============================
+  // Tipo de vivienda declarada por el usuario para el cálculo del BBP
+  tipoVivienda?: 'Tradicional' | 'Sostenible';
+  // Ingresos mensuales del hogar (brutos) utilizados para validar elegibilidad y bonos
+  ingresos?: number;
+  // Edad del titular del crédito. Se usa para determinar si aplica condición de adulto mayor
+  edad?: number;
+  // Ubicación geográfica principal de la vivienda / hogar
+  departamento?: string; // Departamento o región
+  provincia?: string;    // Provincia (opcional)
+  distrito?: string;     // Distrito o zona específica (opcional)
+  // Clasificación de la zona donde se ubica la vivienda
+  zona?: 'urbana' | 'rural';
+  // Composición familiar básica
+  numeroIntegrantesHogar?: number; // Número total de personas en el hogar
+  numeroMenores?: number;          // Menores de 18 años en el hogar
+  // Información socioeconómica complementaria del titular
+  ocupacionPrincipal?: string;     // Ocupación o actividad económica principal
+  nivelEducativo?: string;         // Nivel educativo máximo alcanzado
+  nivelIngresoDeclarado?: 'bajo' | 'medio' | 'alto'; // Clasificación auto-declarada de nivel de ingreso
+  // Condiciones especiales declaradas por el usuario
+  adultoMayor?: boolean;
+  personaDesplazada?: boolean;
+  migrantesRetornados?: boolean;
+  personaConDiscapacidad?: boolean;
 };
 
 export type CalculationResults = {
