@@ -28,6 +28,15 @@ export type SimulationData = {
     personaDesplazada?: boolean;
     migrantesRetornados?: boolean;
     personaConDiscapacidad?: boolean;
+
+    // Cargos actualizados
+    seguroDesgravamenRate?: number; // % anual 
+    seguroRiesgoRate?: number; // % anual 
+    portesPerPeriod?: number; // monto fijo por periodo
+    adminFeesPerPeriod?: number; // gastos administración por periodo
+    periodicCommissionPerPeriod?: number; // comisión periódica por periodo
+    periodicCostFrequencyPerYear?: number; // 12 mensual, 24 quincenal, 52 semanal
+    periodicRatesArePerPeriod?: boolean; // si true, tasas ingresadas ya son por período
 };
 
 export type CalculationResults = {
@@ -39,6 +48,11 @@ export type CalculationResults = {
   van: number;
   tir: number;
   schedule: ScheduleRow[];
+  // Totales agregados de costos periódicos para resumen
+  insuranceLife?: number; // suma seguros desgravamen
+  insuranceRisk?: number; // suma seguros riesgo
+  periodicFees?: number; // suma portes + gastos + comisión
+  totalPeriodicCosts?: number; // suma total periódica acumulada
 };
 
 export type ScheduleRow = {
@@ -50,6 +64,10 @@ export type ScheduleRow = {
   insuranceAndFees: number;
   monthlyPayment: number;
   finalBalance: number;
+  insuranceLife: number; // Seguro de desgravamen
+  insuranceRisk: number; // Seguro de riesgo
+  periodicFees: number; // Portes + Gastos Adm + Comisión
+  totalPeriodicCosts: number; // Suma total costos periódicos
 };
 
 export default function App() {
