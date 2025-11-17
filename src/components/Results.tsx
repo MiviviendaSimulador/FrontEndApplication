@@ -81,6 +81,8 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
     }
   };
 
+  const totalPeriodicCosts = results.totalPeriodicCosts || results.schedule.reduce((s, r) => s + r.totalPeriodicCosts, 0);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -264,6 +266,15 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
               <p className="text-2xl font-bold">{formatCurrency(results.financedAmount)}</p>
             </div>
           </div>
+          <Card className="mt-6">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Costo total en seguros y cargos periódicos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(totalPeriodicCosts)}</div>
+              <p className="text-xs text-muted-foreground">Suma acumulada de todos los costos periódicos del préstamo</p>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
 
@@ -285,6 +296,9 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
                   <TableHead className="text-right">Saldo Inicial</TableHead>
                   <TableHead className="text-right">Interés</TableHead>
                   <TableHead className="text-right">Amortización</TableHead>
+                  <TableHead className="text-right">Desgrav.</TableHead>
+                  <TableHead className="text-right">Riesgo</TableHead>
+                  <TableHead className="text-right">Cargos Fijos</TableHead>
                   <TableHead className="text-right">Seguros/Cargos</TableHead>
                   <TableHead className="text-right">Cuota</TableHead>
                   <TableHead className="text-right">Saldo Final</TableHead>
@@ -302,7 +316,10 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
                         <Badge variant="secondary">Gracia</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">{formatCurrency(row.insuranceAndFees)}</TableCell>
+                    <TableCell className="text-right">{row.insuranceLife ? formatCurrency(row.insuranceLife) : formatCurrency(0)}</TableCell>
+                    <TableCell className="text-right">{row.insuranceRisk ? formatCurrency(row.insuranceRisk) : formatCurrency(0)}</TableCell>
+                    <TableCell className="text-right">{row.periodicFees ? formatCurrency(row.periodicFees) : formatCurrency(0)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(row.totalPeriodicCosts)}</TableCell>
                     <TableCell className="text-right font-medium">
                       {formatCurrency(row.monthlyPayment)}
                     </TableCell>
