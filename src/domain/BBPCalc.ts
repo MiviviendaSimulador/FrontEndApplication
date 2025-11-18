@@ -190,8 +190,19 @@ export class BBPCalc {
     }
     private _bonoIntegrado: number;
 
-    private aplicaIntegrado(): boolean{
+    /**
+     * Verifica si el usuario es elegible para el Bono Buen Pagador (BBP)
+     * Regla: Solo aplica si ingresos <= S/4,746 O si tiene alguna condición especial
+     */
+    private esElegibleParaBBP(): boolean {
         return this.ingresos <= 4746 || this.adultoMayor || this.personaDesplazada || this.migrantesRetornados || this.personaConDiscapacidad;
+    }
+
+    /**
+     * Verifica si aplica el bono integrado adicional (misma condición que elegibilidad BBP)
+     */
+    private aplicaIntegrado(): boolean{
+        return this.esElegibleParaBBP();
     }
 
     /**
@@ -268,11 +279,21 @@ export class BBPCalc {
     }
 
     public CalculoDeBono(): number {
-        let bono = this._valorDelBono;
-        console.log('[BBPCalc] Valor del Bono antes de integrado:', bono);
-        if (this.aplicaIntegrado() && this.rango!==RangosDeVivienda.R5) {
-            bono += this._bonoIntegrado;
+        // Verificar elegibilidad para BBP base
+        if (!this.esElegibleParaBBP()) {
+            console.log('[BBPCalc] ❌ Usuario NO elegible para BBP (ingresos > S/4,746 y sin condición especial)');
+            return 0; // No aplica ningún bono
         }
+
+        let bono = this._valorDelBono;
+        console.log('[BBPCalc] ✅ Usuario elegible para BBP. Valor del Bono base:', bono);
+        
+        // Agregar bono integrado si aplica y no es R5
+        if (this.aplicaIntegrado() && this.rango !== RangosDeVivienda.R5) {
+            bono += this._bonoIntegrado;
+            console.log('[BBPCalc] ✅ Bono integrado aplicado. Bono total:', bono);
+        }
+        
         return bono;
     }
 

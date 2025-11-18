@@ -165,11 +165,43 @@ function applyUserProfileAdjustments(baseBBP: number, data: SimulationData): num
  *    - Esperado: BBP > BBP del perfil base y <= 15% por encima del bono base
  *      retornado por BBPCalc.
  */
+/**
+ * Verifica si el usuario cumple con los requisitos para el Bono Buen Pagador
+ * REGLA CLAVE: BBP solo se aplica si ingresos <= S/4,746 O tiene condición especial
+ */
+function verificarElegibilidadBBP(data: SimulationData): {
+  esElegible: boolean;
+  razon: string;
+} {
+  const ingresos = data.ingresos ?? 5000;
+  const tieneCondicionEspecial = !!(data.adultoMayor || data.personaDesplazada || 
+                                    data.migrantesRetornados || data.personaConDiscapacidad);
+  
+  if (ingresos <= 4746) {
+    return { esElegible: true, razon: `Ingresos S/${ingresos} <= S/4,746` };
+  }
+  
+  if (tieneCondicionEspecial) {
+    const condiciones = [];
+    if (data.adultoMayor) condiciones.push('Adulto Mayor');
+    if (data.personaDesplazada) condiciones.push('Persona Desplazada');
+    if (data.migrantesRetornados) condiciones.push('Migrante Retornado');
+    if (data.personaConDiscapacidad) condiciones.push('Persona con Discapacidad');
+    return { esElegible: true, razon: `Condición especial: ${condiciones.join(', ')}` };
+  }
+  
+  return { esElegible: false, razon: `Ingresos S/${ingresos} > S/4,746 y sin condición especial` };
+}
+
 export async function calculateBBP(
   propertyPrice: number, // Se usa el valor de la vivienda, no el monto financiado
   currency: 'PEN' | 'USD',
   data: SimulationData // Se pasa todo el objeto para acceder a los nuevos campos
 ): Promise<number> {
+  // Verificar elegibilidad antes de calcular
+  const elegibilidad = verificarElegibilidadBBP(data);
+  console.log(`[calculateBBP] Elegibilidad BBP: ${elegibilidad.esElegible ? '✅' : '❌'} - ${elegibilidad.razon}`);
+  
   // Valores por defecto si no se proporcionan
   const tipoVivienda = data.tipoVivienda === 'Sostenible'
     ? TipoDeVivienda.Sostenible
