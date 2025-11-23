@@ -16,7 +16,7 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
 
   // Convertir tasa a mensual
   const termInMonths = data.termType === 'years' ? data.term * 12 : data.term;
-  const monthlyRate = calculateMonthlyRate(data.rate, data.rateType, data.capitalizationsPerYear);
+  const monthlyRate = calculateMonthlyRate(data.rate, data.rateType, data.capitalizationPeriod);
 
   // Generar cronograma
   const schedule = generateSchedule(
@@ -234,15 +234,62 @@ export async function calculateBBP(
   return applyUserProfileAdjustments(baseBBP, data);
 }
 
-function calculateMonthlyRate(rate: number, rateType: string, capitalizationsPerYear?: number): number {
-  if (rateType === 'TEA') {
-    // Convertir TEA a TEM: (1 + TEA)^(1/12) - 1
-    return Math.pow(1 + rate / 100, 1 / 12) - 1;
-  } else {
-    // TNA: dividir entre capitalizaciones por año y luego mensualizar
-    const periodicRate = rate / 100 / (capitalizationsPerYear || 12);
-    const periodsPerMonth = (capitalizationsPerYear || 12) / 12;
-    return Math.pow(1 + periodicRate, periodsPerMonth) - 1;
+function calculateMonthlyRate(
+  rate: number, 
+  rateType: 'TEA' | 'TES' | 'TET' | 'TEM' | 'TNA', 
+  capitalizationPeriod?: 'anual' | 'semanal' | 'trimestral' | 'mensual'
+): number {
+  // Convertir rate de porcentaje a decimal
+  const rateDecimal = rate / 100;
+  
+  switch (rateType) {
+    case 'TEA':
+      // TEA → TEM: (1 + TEA)^(1/12) - 1
+      return Math.pow(1 + rateDecimal, 1 / 12) - 1;
+    
+    case 'TES':
+      // TES → TEM: (1 + TES)^(1/6) - 1
+      // (2 semestres en un año, 6 meses en un semestre)
+      return Math.pow(1 + rateDecimal, 1 / 6) - 1;
+    
+    case 'TET':
+      // TET → TEM: (1 + TET)^(1/3) - 1
+      // (4 trimestres en un año, 3 meses en un trimestre)
+      return Math.pow(1 + rateDecimal, 1 / 3) - 1;
+    
+    case 'TEM':
+      // TEM ya está en mensual, solo convertir de porcentaje a decimal
+      return rateDecimal;
+    
+    case 'TNA':
+      // TNA requiere saber el período de capitalización
+      if (!capitalizationPeriod) {
+        throw new Error('TNA requiere especificar el período de capitalización');
+      }
+      
+      let capitalizationsPerYear: number;
+      switch (capitalizationPeriod) {
+        case 'anual':
+          capitalizationsPerYear = 1;
+          break;
+        case 'semanal':
+          capitalizationsPerYear = 52;
+          break;
+        case 'trimestral':
+          capitalizationsPerYear = 4;
+          break;
+        case 'mensual':
+          capitalizationsPerYear = 12;
+          break;
+      }
+      
+      // TNA → TEM: (1 + TNA/m)^(m/12) - 1
+      const periodicRate = rateDecimal / capitalizationsPerYear;
+      const periodsPerMonth = capitalizationsPerYear / 12;
+      return Math.pow(1 + periodicRate, periodsPerMonth) - 1;
+    
+    default:
+      throw new Error(`Tipo de tasa no soportado: ${rateType}`);
   }
 }
 

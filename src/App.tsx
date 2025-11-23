@@ -11,8 +11,8 @@ export type SimulationData = {
   downPayment: number;
   downPaymentType: 'amount' | 'percentage';
   currency: 'PEN' | 'USD';
-  rateType: 'TEA' | 'TNA';
-  capitalizationsPerYear?: number;
+  rateType: 'TEA' | 'TES' | 'TET' | 'TEM' | 'TNA';
+  capitalizationPeriod?: 'anual' | 'semanal' | 'trimestral' | 'mensual'; // Solo para TNA
   rate: number;
   term: number;
   termType: 'years' | 'months';

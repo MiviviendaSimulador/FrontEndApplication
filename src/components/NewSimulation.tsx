@@ -67,12 +67,31 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
       const financedAmount = financedAmountBeforeBBP - bbp;
 
         let monthlyRate: number;
+        const rateDecimal = formData.rate / 100;
+        
         if (formData.rateType === 'TEA') {
-          monthlyRate = Math.pow(1 + formData.rate / 100, 1 / 12) - 1;
-        } else {
-          const periodicRate = formData.rate / 100 / (formData.capitalizationsPerYear || 12);
-          const periodsPerMonth = (formData.capitalizationsPerYear || 12) / 12;
+          // TEA → TEM: (1 + TEA)^(1/12) - 1
+          monthlyRate = Math.pow(1 + rateDecimal, 1 / 12) - 1;
+        } else if (formData.rateType === 'TES') {
+          // TES → TEM: (1 + TES)^(1/6) - 1
+          monthlyRate = Math.pow(1 + rateDecimal, 1 / 6) - 1;
+        } else if (formData.rateType === 'TET') {
+          // TET → TEM: (1 + TET)^(1/3) - 1
+          monthlyRate = Math.pow(1 + rateDecimal, 1 / 3) - 1;
+        } else if (formData.rateType === 'TEM') {
+          // TEM ya está en mensual
+          monthlyRate = rateDecimal;
+        } else if (formData.rateType === 'TNA') {
+          // TNA requiere período de capitalización
+          const capitalizationsPerYear = 
+            formData.capitalizationPeriod === 'anual' ? 1 :
+            formData.capitalizationPeriod === 'semanal' ? 52 :
+            formData.capitalizationPeriod === 'trimestral' ? 4 : 12;
+          const periodicRate = rateDecimal / capitalizationsPerYear;
+          const periodsPerMonth = capitalizationsPerYear / 12;
           monthlyRate = Math.pow(1 + periodicRate, periodsPerMonth) - 1;
+        } else {
+          monthlyRate = 0;
         }
 
         setPreviewMetrics({
@@ -438,14 +457,17 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
                     <Label htmlFor="rateType">Tipo de tasa</Label>
                     <Select
                       value={formData.rateType}
-                      onValueChange={(value: 'TEA' | 'TNA') => updateFormData({ rateType: value })}
+                      onValueChange={(value: 'TEA' | 'TES' | 'TET' | 'TEM' | 'TNA') => updateFormData({ rateType: value })}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="TEA">TEA</SelectItem>
-                        <SelectItem value="TNA">TNA</SelectItem>
+                        <SelectItem value="TEA">TEA (Tasa Efectiva Anual)</SelectItem>
+                        <SelectItem value="TES">TES (Tasa Efectiva Semestral)</SelectItem>
+                        <SelectItem value="TET">TET (Tasa Efectiva Trimestral)</SelectItem>
+                        <SelectItem value="TEM">TEM (Tasa Efectiva Mensual)</SelectItem>
+                        <SelectItem value="TNA">TNA (Tasa Nominal Anual)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -467,16 +489,23 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
 
                 {formData.rateType === 'TNA' && (
                   <div className="space-y-2">
-                    <Label htmlFor="capitalizationsPerYear">Capitalizaciones por año (m)</Label>
-                    <Input
-                      id="capitalizationsPerYear"
-                      type="number"
-                      value={formData.capitalizationsPerYear || 12}
-                      onChange={(e) => updateFormData({ capitalizationsPerYear: Number(e.target.value) })}
-                      min="1"
-                      max="365"
-                      required
-                    />
+                    <Label htmlFor="capitalizationPeriod">Período de capitalización</Label>
+                    <Select
+                      value={formData.capitalizationPeriod || 'mensual'}
+                      onValueChange={(value: 'anual' | 'semanal' | 'trimestral' | 'mensual') => 
+                        updateFormData({ capitalizationPeriod: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="anual">Anual</SelectItem>
+                        <SelectItem value="semanal">Semanal</SelectItem>
+                        <SelectItem value="trimestral">Trimestral</SelectItem>
+                        <SelectItem value="mensual">Mensual</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
