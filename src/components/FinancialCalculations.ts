@@ -48,7 +48,12 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
 
   // Calcular métricas
   const totalInterest = schedule.reduce((sum, row) => sum + row.interest, 0);
-  const monthlyPayment = schedule.find(row => row.amortization > 0)?.monthlyPayment || 0;
+  // La cuota mensual en el Excel se refiere solo a la cuota base (sin seguros)
+  // monthlyPayment en el schedule incluye seguros, así que restamos los seguros
+  const firstPaymentWithAmortization = schedule.find(row => row.amortization > 0);
+  const monthlyPayment = firstPaymentWithAmortization 
+    ? (firstPaymentWithAmortization.monthlyPayment - firstPaymentWithAmortization.totalPeriodicCosts) // Cuota base sin seguros
+    : 0;
 
   const tcea = calculateTCEA(schedule, loanAmount);
   const trea = calculateTREA(tcea);
@@ -355,28 +360,18 @@ function generateSchedule(
     ? (seguroRiesgoRate / 100)
     : (seguroRiesgoRate / 100) * (diasPorPeriodo / 360); // Fórmula del Excel
 
-  // Primero, calcular el saldo después de la gracia total (si aplica)
-  let balanceAfterGrace = balance;
-  if (gracePeriodType === 'total' && gracePeriodMonths > 0) {
-    // Capitalizar intereses durante la gracia total
-    for (let g = 0; g < gracePeriodMonths; g++) {
-      const interestDuringGrace = balanceAfterGrace * monthlyRate;
-      balanceAfterGrace += interestDuringGrace; // Capitalizar intereses
-    }
-  }
-
-  // Calcular cuota fija (después del período de gracia)
-  // Si hay gracia total, usar el saldo capitalizado
-  const finalBalance = gracePeriodType === 'total' && gracePeriodMonths > 0 
-    ? balanceAfterGrace 
-    : balance;
+  // Calcular cuota fija - se calculará dinámicamente cuando termine la gracia
+  // para usar el balance real después de capitalización mes a mes
+  let basePayment = 0;
+  let basePaymentCalculated = false;
   
-  const paymentsWithAmortization = termInMonths - (gracePeriodType === 'total' ? gracePeriodMonths : 0);
-  const basePayment = gracePeriodType === 'none' || paymentsWithAmortization <= 0
-    ? (financedAmount * monthlyRate * Math.pow(1 + monthlyRate, termInMonths)) / 
-      (Math.pow(1 + monthlyRate, termInMonths) - 1)
-    : (finalBalance * monthlyRate * Math.pow(1 + monthlyRate, paymentsWithAmortization)) / 
-      (Math.pow(1 + monthlyRate, paymentsWithAmortization) - 1);
+  // Si no hay gracia, calcular la cuota base ahora
+  if (gracePeriodType === 'none') {
+    const numerator = balance * monthlyRate * Math.pow(1 + monthlyRate, termInMonths);
+    const denominator = Math.pow(1 + monthlyRate, termInMonths) - 1;
+    basePayment = numerator / denominator;
+    basePaymentCalculated = true;
+  }
 
   for (let i = 1; i <= termInMonths; i++) {
     const date = new Date();
@@ -395,6 +390,16 @@ function generateSchedule(
 
     if (gracePeriodType === 'none' || i > gracePeriodMonths) {
       // Período normal o después de gracia
+      // Si es el primer período después de la gracia, calcular la cuota base ahora
+      // usando el balance real (que ya incluye la capitalización mes a mes)
+      if (!basePaymentCalculated && i > gracePeriodMonths) {
+        const paymentsWithAmortization = termInMonths - gracePeriodMonths;
+        const numerator = balance * monthlyRate * Math.pow(1 + monthlyRate, paymentsWithAmortization);
+        const denominator = Math.pow(1 + monthlyRate, paymentsWithAmortization) - 1;
+        basePayment = numerator / denominator;
+        basePaymentCalculated = true;
+      }
+      
       amortization = basePayment - interest;
       monthlyPayment = basePayment + totalPeriodicCosts;
       balance = Math.max(0, balance - amortization);
@@ -433,6 +438,7 @@ function generateSchedule(
 
 function calculateTCEA(schedule: ScheduleRow[], financedAmount: number): number {
   // TCEA basado en flujos de caja usando método de búsqueda binaria mejorado
+  // Usar monthlyPayment que incluye seguros y cargos (flujo total que paga el cliente)
   const payments = schedule.map(row => row.monthlyPayment);
   
   // Función para calcular NPV dado una tasa mensual
@@ -445,11 +451,12 @@ function calculateTCEA(schedule: ScheduleRow[], financedAmount: number): number 
   };
 
   // Búsqueda binaria para encontrar la tasa que hace NPV = 0
-  let low = 0.0001; // 0.01% mensual
-  let high = 0.1;   // 10% mensual
+  // Mejorar precisión para coincidir con Excel (5 decimales)
+  let low = 0.00001; // 0.001% mensual
+  let high = 0.1;    // 10% mensual
   let tcea = 0;
-  const tolerance = 0.0001; // Tolerancia para la convergencia
-  const maxIterations = 100;
+  const tolerance = 1e-8; // Tolerancia muy pequeña para alta precisión
+  const maxIterations = 200; // Más iteraciones para mejor precisión
   let iterations = 0;
 
   while (iterations < maxIterations) {
@@ -470,7 +477,7 @@ function calculateTCEA(schedule: ScheduleRow[], financedAmount: number): number 
     iterations++;
   }
 
-  // Si no converge, usar el valor medio
+  // Si no converge, usar el valor medio final
   if (tcea === 0) {
     tcea = (low + high) / 2;
   }
@@ -495,9 +502,12 @@ function calculateVAN(schedule: ScheduleRow[], discountRate: number, financedAmo
   const monthlyDiscountRate = discountRate;
   
   // Descontar todos los pagos recibidos (flujos positivos para el banco)
-  const discountedPayments = schedule.reduce((sum, row, index) => {
-    return sum + row.monthlyPayment / Math.pow(1 + monthlyDiscountRate, index + 1);
-  }, 0);
+  // Usar alta precisión para coincidir con Excel
+  let discountedPayments = 0;
+  for (let i = 0; i < schedule.length; i++) {
+    const discountFactor = Math.pow(1 + monthlyDiscountRate, i + 1);
+    discountedPayments += schedule[i].monthlyPayment / discountFactor;
+  }
   
   // VAN = Pagos descontados - Monto prestado
   // (Positivo si los pagos descontados > monto prestado)
@@ -518,11 +528,12 @@ function calculateTIR(schedule: ScheduleRow[], initialInvestment: number): numbe
   };
 
   // Búsqueda binaria para encontrar la tasa que hace NPV = 0
-  let low = 0.0001; // 0.01% mensual
-  let high = 0.1;   // 10% mensual
+  // Mejorar precisión para coincidir con Excel (5 decimales: 0.79177%)
+  let low = 0.00001; // 0.001% mensual
+  let high = 0.1;    // 10% mensual
   let tir = 0;
-  const tolerance = 0.0001; // Tolerancia para la convergencia
-  const maxIterations = 100;
+  const tolerance = 1e-8; // Tolerancia muy pequeña para alta precisión
+  const maxIterations = 200; // Más iteraciones para mejor precisión
   let iterations = 0;
 
   while (iterations < maxIterations) {
@@ -543,7 +554,7 @@ function calculateTIR(schedule: ScheduleRow[], initialInvestment: number): numbe
     iterations++;
   }
 
-  // Si no converge, usar el valor medio
+  // Si no converge, usar el valor medio final
   if (tir === 0) {
     tir = (low + high) / 2;
   }
