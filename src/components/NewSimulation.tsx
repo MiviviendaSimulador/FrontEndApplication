@@ -599,7 +599,7 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
                       value={formData.seguroDesgravamenRate}
                       onChange={(e) => updateFormData({ seguroDesgravamenRate: Number(e.target.value) })}
                       min="0"
-                      step="0.01"
+                      step="0.001"
                     />
                     <p className="text-xs text-muted-foreground">Se aplican por período según la frecuencia seleccionada.</p>
                   </div>
@@ -611,7 +611,7 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
                       value={formData.seguroRiesgoRate}
                       onChange={(e) => updateFormData({ seguroRiesgoRate: Number(e.target.value) })}
                       min="0"
-                      step="0.01"
+                      step="0.001"
                     />
                     <p className="text-xs text-muted-foreground">Se aplican por período según la frecuencia seleccionada.</p>
                   </div>

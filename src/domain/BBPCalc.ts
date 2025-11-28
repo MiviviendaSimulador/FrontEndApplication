@@ -280,10 +280,10 @@ export class BBPCalc {
 
     public CalculoDeBono(): number {
         // Verificar elegibilidad para BBP base
-        if (!this.esElegibleParaBBP()) {
+        /*if (!this.esElegibleParaBBP()) {
             console.log('[BBPCalc] ❌ Usuario NO elegible para BBP (ingresos > S/4,746 y sin condición especial)');
             return 0; // No aplica ningún bono
-        }
+        }*/
 
         let bono = this._valorDelBono;
         console.log('[BBPCalc] ✅ Usuario elegible para BBP. Valor del Bono base:', bono);
