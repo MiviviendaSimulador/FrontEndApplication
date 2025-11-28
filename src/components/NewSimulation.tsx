@@ -34,6 +34,14 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
     periodicCommissionPerPeriod: 0,
     periodicCostFrequencyPerYear: 12,
     periodicRatesArePerPeriod: false,
+    // Costos iniciales
+    notaryFees: 0,
+    registrationFees: 0,
+    appraisal: 0,
+    studyCommission: 0,
+    activationCommission: 0,
+    // Tasa de descuento (Cok)
+    discountRate: 5.0, // 5% TEA por defecto
     // Valores iniciales razonables para el perfil del cliente
     ingresos: 3000,
     edad: 30,
@@ -684,6 +692,132 @@ export function NewSimulation({ onSubmit }: NewSimulationProps) {
                       />
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Costos Iniciales */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Costos y Gastos Iniciales</CardTitle>
+                <CardDescription>
+                  Costos que se suman al monto del préstamo
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="notaryFees">Costes Notariales</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="notaryFees"
+                        type="number"
+                        className="pl-8"
+                        value={formData.notaryFees ?? 0}
+                        onChange={(e) => updateFormData({ notaryFees: Number(e.target.value) || 0 })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="registrationFees">Costes Registrales</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="registrationFees"
+                        type="number"
+                        className="pl-8"
+                        value={formData.registrationFees ?? 0}
+                        onChange={(e) => updateFormData({ registrationFees: Number(e.target.value) || 0 })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="appraisal">Tasación</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="appraisal"
+                        type="number"
+                        className="pl-8"
+                        value={formData.appraisal ?? 0}
+                        onChange={(e) => updateFormData({ appraisal: Number(e.target.value) || 0 })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="studyCommission">Comisión de Estudio</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="studyCommission"
+                        type="number"
+                        className="pl-8"
+                        value={formData.studyCommission ?? 0}
+                        onChange={(e) => updateFormData({ studyCommission: Number(e.target.value) || 0 })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="activationCommission">Comisión de Activación</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                        {formData.currency === 'PEN' ? 'S/' : '$'}
+                      </span>
+                      <Input
+                        id="activationCommission"
+                        type="number"
+                        className="pl-8"
+                        value={formData.activationCommission ?? 0}
+                        onChange={(e) => updateFormData({ activationCommission: Number(e.target.value) || 0 })}
+                        min="0"
+                        step="1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tasa de Descuento (Cok) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Costo de Oportunidad</CardTitle>
+                <CardDescription>
+                  Tasa de descuento para cálculo de VAN
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="discountRate">Tasa de Descuento TEA (Cok) %</Label>
+                  <Input
+                    id="discountRate"
+                    type="number"
+                    value={formData.discountRate ?? 5.0}
+                    onChange={(e) => updateFormData({ discountRate: Number(e.target.value) || 5.0 })}
+                    min="0"
+                    max="50"
+                    step="0.1"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Tasa de descuento utilizada para calcular el VAN (Valor Actual Neto)
+                  </p>
                 </div>
               </CardContent>
             </Card>

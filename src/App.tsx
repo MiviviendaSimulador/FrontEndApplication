@@ -21,6 +21,16 @@ export type SimulationData = {
   insuranceAndFees: number;
   bbp?: number;
 
+  // Costos iniciales
+  notaryFees?: number; // Costes Notariales
+  registrationFees?: number; // Costes Registrales
+  appraisal?: number; // Tasación
+  studyCommission?: number; // Comisión de estudio
+  activationCommission?: number; // Comisión activación
+
+  // Tasa de descuento (Cok) para VAN
+  discountRate?: number; // Tasa de descuento TEA (Cok) %
+
     // Nuevos campos para BBPCalc
     tipoVivienda?: 'Tradicional' | 'Sostenible';  // Por defecto 'Tradicional'
     ingresos?: number;  // Ingresos del usuario

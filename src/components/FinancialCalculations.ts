@@ -13,14 +13,24 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
   //const bbp = calculateBBP(financedAmountBeforeBBP, data.currency);
   const bbp = await calculateBBP(data.propertyPrice, data.currency, data);
   const financedAmount = financedAmountBeforeBBP - bbp;
+  
+  // Calcular costos iniciales totales
+  const initialCosts = (data.notaryFees || 0) + 
+                       (data.registrationFees || 0) + 
+                       (data.appraisal || 0) + 
+                       (data.studyCommission || 0) + 
+                       (data.activationCommission || 0);
+  
+  // Monto del préstamo = Saldo a financiar + costos iniciales (según Excel)
+  const loanAmount = financedAmount + initialCosts;
 
   // Convertir tasa a mensual
   const termInMonths = data.termType === 'years' ? data.term * 12 : data.term;
   const monthlyRate = calculateMonthlyRate(data.rate, data.rateType, data.capitalizationPeriod);
 
-  // Generar cronograma
+  // Generar cronograma usando el monto del préstamo (incluye costos iniciales)
   const schedule = generateSchedule(
-    financedAmount,
+    loanAmount, // Usar loanAmount en lugar de financedAmount
     monthlyRate,
     termInMonths,
     data.gracePeriodType,
@@ -40,10 +50,13 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
   const totalInterest = schedule.reduce((sum, row) => sum + row.interest, 0);
   const monthlyPayment = schedule.find(row => row.amortization > 0)?.monthlyPayment || 0;
 
-  const tcea = calculateTCEA(schedule, financedAmount);
+  const tcea = calculateTCEA(schedule, loanAmount);
   const trea = calculateTREA(tcea);
-  const van = calculateVAN(schedule, monthlyRate);
-  const tir = calculateTIR(schedule, financedAmount);
+  // Para VAN, usar tasa de descuento (Cok) del formulario
+  const discountRateTEA = (data.discountRate || 5.0) / 100;
+  const discountRateMonthly = Math.pow(1 + discountRateTEA, 1/12) - 1; // TEA a mensual
+  const van = calculateVAN(schedule, discountRateMonthly, loanAmount);
+  const tir = calculateTIR(schedule, loanAmount);
 
   // costos periódicos
   const totalInsuranceLife = schedule.reduce((s, r) => s + r.insuranceLife, 0);
@@ -54,7 +67,7 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
   return {
     monthlyPayment,
     totalInterest,
-    financedAmount,
+    financedAmount, // Mantener para compatibilidad, pero el cronograma usa loanAmount
     tcea,
     trea,
     van,
@@ -311,23 +324,58 @@ function generateSchedule(
 ): ScheduleRow[] {
   const schedule: ScheduleRow[] = [];
   let balance = financedAmount;
-  // Frecuencia y periodo en días asumidos (según instrucciones)
+  
+  // Frecuencia de pago (mensual = 12, quincenal = 24, semanal = 52)
   const frecuenciaPago = periodicCostFrequencyPerYear || 12;
-  const periodoEnDias = 360;
-  // Tasas periódicas (convertir % anual a factor por periodo) o usar por período directo
+  // Días por período (asumiendo 360 días por año)
+  const diasPorPeriodo = 360 / frecuenciaPago; // 30 días para mensual
+  
+  // Tasas periódicas según fórmula del Excel:
+  // Según el Excel: 
+  // TSD = % Seguro desgravamen * Frecuencia de pago / Período en días de la TSD
+  // TSR = % Seguro riesgo * Frecuencia de pago / Período en días de la TSR
+  // 
+  // En el Excel, "Período en días" parece ser 360 días para ambos
+  // Frecuencia de pago = 30 días (mensual)
+  //
+  // Verificación con valores del Excel:
+  // - Seguro desgravamen mes 1: 60.12 sobre 133,600 = 0.045% mensual
+  //   Si tasa anual = 0.045%, entonces: 0.045% * 30 / 360 = 0.00375% (NO coincide)
+  //   Pero si usamos directamente: 0.045% = 0.045% ✓ (coincide)
+  //
+  // - Seguro riesgo mes 1: 15.00 sobre 180,000 = 0.00833% mensual
+  //   0.1% * 30 / 360 = 0.00833% ✓ (coincide)
+  //
+  // CONCLUSIÓN: El Excel usa la tasa anual directamente para desgravamen
+  // y la fórmula para riesgo. Esto parece ser una inconsistencia del Excel.
   const TSD = periodicRatesArePerPeriod
     ? (seguroDesgravamenRate / 100)
-    : (seguroDesgravamenRate / 100) * (frecuenciaPago / periodoEnDias);
+    : (seguroDesgravamenRate / 100); // Usar directamente para coincidir con Excel
   const TSR = periodicRatesArePerPeriod
     ? (seguroRiesgoRate / 100)
-    : (seguroRiesgoRate / 100) * (frecuenciaPago / periodoEnDias);
+    : (seguroRiesgoRate / 100) * (diasPorPeriodo / 360); // Fórmula del Excel
+
+  // Primero, calcular el saldo después de la gracia total (si aplica)
+  let balanceAfterGrace = balance;
+  if (gracePeriodType === 'total' && gracePeriodMonths > 0) {
+    // Capitalizar intereses durante la gracia total
+    for (let g = 0; g < gracePeriodMonths; g++) {
+      const interestDuringGrace = balanceAfterGrace * monthlyRate;
+      balanceAfterGrace += interestDuringGrace; // Capitalizar intereses
+    }
+  }
 
   // Calcular cuota fija (después del período de gracia)
+  // Si hay gracia total, usar el saldo capitalizado
+  const finalBalance = gracePeriodType === 'total' && gracePeriodMonths > 0 
+    ? balanceAfterGrace 
+    : balance;
+  
   const paymentsWithAmortization = termInMonths - (gracePeriodType === 'total' ? gracePeriodMonths : 0);
   const basePayment = gracePeriodType === 'none' || paymentsWithAmortization <= 0
     ? (financedAmount * monthlyRate * Math.pow(1 + monthlyRate, termInMonths)) / 
       (Math.pow(1 + monthlyRate, termInMonths) - 1)
-    : (financedAmount * monthlyRate * Math.pow(1 + monthlyRate, paymentsWithAmortization)) / 
+    : (finalBalance * monthlyRate * Math.pow(1 + monthlyRate, paymentsWithAmortization)) / 
       (Math.pow(1 + monthlyRate, paymentsWithAmortization) - 1);
 
   for (let i = 1; i <= termInMonths; i++) {
@@ -349,17 +397,20 @@ function generateSchedule(
       // Período normal o después de gracia
       amortization = basePayment - interest;
       monthlyPayment = basePayment + totalPeriodicCosts;
+      balance = Math.max(0, balance - amortization);
     } else if (gracePeriodType === 'partial') {
       // Período de gracia parcial - solo se pagan intereses
       amortization = 0;
       monthlyPayment = interest + totalPeriodicCosts;
+      // El saldo no cambia (se pagan intereses, no se capitalizan)
+      balance = balance;
     } else if (gracePeriodType === 'total') {
-      // Período de gracia total - no se paga nada
+      // Período de gracia total - no se paga nada, intereses se capitalizan
       amortization = 0;
-      monthlyPayment = totalPeriodicCosts; // Solo costos periódicos según nuevas reglas
+      monthlyPayment = totalPeriodicCosts; // Solo costos periódicos
+      // Capitalizar intereses: sumar al saldo
+      balance = balance + interest;
     }
-
-    balance = Math.max(0, balance - amortization);
 
     schedule.push({
       payment: i,
@@ -381,23 +432,53 @@ function generateSchedule(
 }
 
 function calculateTCEA(schedule: ScheduleRow[], financedAmount: number): number {
-  // TCEA basado en flujos de caja
+  // TCEA basado en flujos de caja usando método de búsqueda binaria mejorado
   const payments = schedule.map(row => row.monthlyPayment);
-  let tcea = 0;
   
-  // Método iterativo simplificado para encontrar TCEA
-  for (let rate = 0.01; rate <= 2; rate += 0.001) {
+  // Función para calcular NPV dado una tasa mensual
+  const calculateNPV = (monthlyRate: number): number => {
     let npv = -financedAmount;
     for (let i = 0; i < payments.length; i++) {
-      npv += payments[i] / Math.pow(1 + rate / 12, i + 1);
+      npv += payments[i] / Math.pow(1 + monthlyRate, i + 1);
     }
-    if (Math.abs(npv) < 1) {
-      tcea = rate;
+    return npv;
+  };
+
+  // Búsqueda binaria para encontrar la tasa que hace NPV = 0
+  let low = 0.0001; // 0.01% mensual
+  let high = 0.1;   // 10% mensual
+  let tcea = 0;
+  const tolerance = 0.0001; // Tolerancia para la convergencia
+  const maxIterations = 100;
+  let iterations = 0;
+
+  while (iterations < maxIterations) {
+    const mid = (low + high) / 2;
+    const npv = calculateNPV(mid);
+    
+    if (Math.abs(npv) < tolerance) {
+      tcea = mid;
       break;
     }
+    
+    if (npv > 0) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+    
+    iterations++;
   }
+
+  // Si no converge, usar el valor medio
+  if (tcea === 0) {
+    tcea = (low + high) / 2;
+  }
+
+  // Convertir tasa mensual a anual: TEA = (1 + TEM)^12 - 1
+  const annualRate = Math.pow(1 + tcea, 12) - 1;
   
-  return tcea * 100;
+  return annualRate * 100;
 }
 
 function calculateTREA(tcea: number): number {
@@ -406,18 +487,71 @@ function calculateTREA(tcea: number): number {
   return tcea * 0.9;
 }
 
-function calculateVAN(schedule: ScheduleRow[], discountRate: number): number {
-  // VAN con tasa de descuento igual a la tasa mensual
-  return schedule.reduce((van, row, index) => {
-    return van + row.monthlyPayment / Math.pow(1 + discountRate, index + 1);
+function calculateVAN(schedule: ScheduleRow[], discountRate: number, financedAmount: number): number {
+  // VAN desde perspectiva del banco/prestamista según Excel:
+  // VAN = -Monto prestado + Σ(Pagos recibidos descontados)
+  // En Excel, VAN positivo significa que el banco gana
+  // discountRate ya es mensual
+  const monthlyDiscountRate = discountRate;
+  
+  // Descontar todos los pagos recibidos (flujos positivos para el banco)
+  const discountedPayments = schedule.reduce((sum, row, index) => {
+    return sum + row.monthlyPayment / Math.pow(1 + monthlyDiscountRate, index + 1);
   }, 0);
+  
+  // VAN = Pagos descontados - Monto prestado
+  // (Positivo si los pagos descontados > monto prestado)
+  return discountedPayments - financedAmount;
 }
 
 function calculateTIR(schedule: ScheduleRow[], initialInvestment: number): number {
-  // TIR simplificado - retorna un valor aproximado
-  const totalPayments = schedule.reduce((sum, row) => sum + row.monthlyPayment, 0);
-  const months = schedule.length;
+  // TIR usando método de búsqueda binaria (similar a TCEA)
+  const payments = schedule.map(row => row.monthlyPayment);
   
-  // Aproximación: TIR anual ≈ ((totalPayments / initialInvestment)^(12/months) - 1) * 100
-  return (Math.pow(totalPayments / initialInvestment, 12 / months) - 1) * 100;
+  // Función para calcular NPV dado una tasa mensual
+  const calculateNPV = (monthlyRate: number): number => {
+    let npv = -initialInvestment;
+    for (let i = 0; i < payments.length; i++) {
+      npv += payments[i] / Math.pow(1 + monthlyRate, i + 1);
+    }
+    return npv;
+  };
+
+  // Búsqueda binaria para encontrar la tasa que hace NPV = 0
+  let low = 0.0001; // 0.01% mensual
+  let high = 0.1;   // 10% mensual
+  let tir = 0;
+  const tolerance = 0.0001; // Tolerancia para la convergencia
+  const maxIterations = 100;
+  let iterations = 0;
+
+  while (iterations < maxIterations) {
+    const mid = (low + high) / 2;
+    const npv = calculateNPV(mid);
+    
+    if (Math.abs(npv) < tolerance) {
+      tir = mid;
+      break;
+    }
+    
+    if (npv > 0) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+    
+    iterations++;
+  }
+
+  // Si no converge, usar el valor medio
+  if (tir === 0) {
+    tir = (low + high) / 2;
+  }
+
+  // TIR puede mostrarse como mensual o anual según necesidad
+  // El Excel muestra "TIR período" = 0.79177% (mensual)
+  // Para mostrar mensual: return tir * 100;
+  // Para mostrar anual: convertir a TEA
+  // Por ahora, retornamos mensual para coincidir con el Excel
+  return tir * 100; // Retornar TIR mensual (período)
 }
