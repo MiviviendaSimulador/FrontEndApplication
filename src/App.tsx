@@ -3,8 +3,10 @@ import { LoginRegister } from './components/LoginRegister';
 import { NewSimulation } from './components/NewSimulation';
 import { Results } from './components/Results';
 import { CompareScenarios } from './components/CompareScenarios';
+import { MultiCompare } from './components/MultiCompare';
 import { SimulationHistory } from './components/SimulationHistory';
 import { Navigation } from './components/Navigation';
+import { SavedSimulation } from './utils/supabase/client';
 
 export type SimulationData = {
   propertyPrice: number;
@@ -31,25 +33,20 @@ export type SimulationData = {
   // Tasa de descuento (Cok) para VAN
   discountRate?: number; // Tasa de descuento TEA (Cok) %
 
-    // Nuevos campos para BBPCalc
-    tipoVivienda?: 'Tradicional' | 'Sostenible';  // Por defecto 'Tradicional'
-    ingresos?: number;  // Ingresos del usuario
-    adultoMayor?: boolean;
-    personaDesplazada?: boolean;
-    migrantesRetornados?: boolean;
-    personaConDiscapacidad?: boolean;
-
-    // Cargos actualizados
-    seguroDesgravamenRate?: number; // % anual 
-    seguroRiesgoRate?: number; // % anual 
-    portesPerPeriod?: number; // monto fijo por periodo
-    adminFeesPerPeriod?: number; // gastos administración por periodo
-    periodicCommissionPerPeriod?: number; // comisión periódica por periodo
-    periodicCostFrequencyPerYear?: number; // 12 mensual, 24 quincenal, 52 semanal
-    periodicRatesArePerPeriod?: boolean; // si true, tasas ingresadas ya son por período
+  // Cargos actualizados
+  seguroDesgravamenRate?: number; // % anual 
+  seguroRiesgoRate?: number; // % anual 
+  portesPerPeriod?: number; // monto fijo por periodo
+  adminFeesPerPeriod?: number; // gastos administración por periodo
+  periodicCommissionPerPeriod?: number; // comisión periódica por periodo
+  periodicCostFrequencyPerYear?: number; // 12 mensual, 24 quincenal, 52 semanal
+  periodicRatesArePerPeriod?: boolean; // si true, tasas ingresadas ya son por período
+  
   // ==============================
   // Datos de perfil del cliente
   // ==============================
+  // Producto / oferta inmobiliaria seleccionada (solo informativo, no afecta cálculos)
+  ofertaInmobiliaria?: 'departamento' | 'casa' | 'terreno' | 'oficina' | 'local_comercial' | 'otro';
   // Tipo de vivienda declarada por el usuario para el cálculo del BBP
   tipoVivienda?: 'Tradicional' | 'Sostenible';
   // Ingresos mensuales del hogar (brutos) utilizados para validar elegibilidad y bonos
@@ -90,6 +87,9 @@ export type CalculationResults = {
   insuranceRisk?: number; // suma seguros riesgo
   periodicFees?: number; // suma portes + gastos + comisión
   totalPeriodicCosts?: number; // suma total periódica acumulada
+  bbpValue?: number; // Valor del Bono del Buen Pagador
+  loanAmount?: number; // Monto del préstamo (incluye costos iniciales)
+  totalAmortization?: number; // Amortización total del capital
 };
 
 export type ScheduleRow = {
@@ -108,11 +108,13 @@ export type ScheduleRow = {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history' | 'multi-compare'>('login');
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [simulationData, setSimulationData] = useState<SimulationData | null>(null);
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [baseScenario, setBaseScenario] = useState<{ data: SimulationData; results: CalculationResults } | null>(null);
+  const [compareSimulations, setCompareSimulations] = useState<SavedSimulation[]>([]);
+  const [editData, setEditData] = useState<SimulationData | null>(null);
 
   const handleLogin = (userData: { name: string; email: string }) => {
     setUser(userData);
@@ -125,12 +127,7 @@ export default function App() {
     setSimulationData(null);
     setResults(null);
     setBaseScenario(null);
-  };
-
-  const handleSimulationSubmit = (data: SimulationData, calculatedResults: CalculationResults) => {
-    setSimulationData(data);
-    setResults(calculatedResults);
-    setCurrentView('results');
+    setEditData(null);
   };
 
   const handleLoadSimulation = (data: SimulationData, calculatedResults: CalculationResults) => {
@@ -151,6 +148,23 @@ export default function App() {
     }
   };
 
+  const handleCompareMultiple = (simulations: SavedSimulation[]) => {
+    setCompareSimulations(simulations);
+    setCurrentView('multi-compare');
+  };
+
+  const handleEditSimulation = (data: SimulationData) => {
+    setEditData(data);
+    setCurrentView('simulation');
+  };
+
+  const handleSimulationSubmit = (data: SimulationData, calculatedResults: CalculationResults) => {
+    setSimulationData(data);
+    setResults(calculatedResults);
+    setEditData(null); // Clear edit data after submission
+    setCurrentView('results');
+  };
+
   if (!user) {
     return <LoginRegister onLogin={handleLogin} />;
   }
@@ -166,13 +180,18 @@ export default function App() {
       
       <main className="pt-16">
         {currentView === 'simulation' && (
-          <NewSimulation onSubmit={handleSimulationSubmit} />
+          <NewSimulation 
+            onSubmit={handleSimulationSubmit}
+            initialData={editData}
+          />
         )}
 
         {currentView === 'history' && user && (
           <SimulationHistory 
             userEmail={user.email}
             onLoadSimulation={handleLoadSimulation}
+            onCompareSimulations={handleCompareMultiple}
+            onEditSimulation={handleEditSimulation}
           />
         )}
         
@@ -191,6 +210,13 @@ export default function App() {
           <CompareScenarios 
             baseScenario={baseScenario}
             onBack={() => setCurrentView('results')}
+          />
+        )}
+
+        {currentView === 'multi-compare' && compareSimulations.length >= 2 && (
+          <MultiCompare 
+            simulations={compareSimulations}
+            onBack={() => setCurrentView('history')}
           />
         )}
       </main>

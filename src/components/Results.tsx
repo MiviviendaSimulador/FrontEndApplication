@@ -24,7 +24,6 @@ interface ResultsProps {
 export function Results({ results, simulationData, onSaveBase, onCloneScenario, hasBaseScenario, userEmail }: ResultsProps) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [simulationName, setSimulationName] = useState('');
-  const [isBaseScenario, setIsBaseScenario] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
@@ -54,18 +53,12 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
         name: simulationName.trim(),
         simulation_data: simulationData,
         results: results,
-        is_base_scenario: isBaseScenario
+        is_base_scenario: false // No longer needed for comparison
       });
 
       if (savedSimulation) {
         setSaveSuccess('Simulación guardada exitosamente');
         setSimulationName('');
-        setIsBaseScenario(false);
-        
-        // Si es escenario base, también guardarlo localmente
-        if (isBaseScenario) {
-          onSaveBase();
-        }
 
         setTimeout(() => {
           setSaveDialogOpen(false);
@@ -79,6 +72,12 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCloneForComparison = () => {
+    // Auto-save current scenario as base for quick comparison
+    onSaveBase();
+    onCloneScenario();
   };
 
   const totalPeriodicCosts = results.totalPeriodicCosts || results.schedule.reduce((s, r) => s + r.totalPeriodicCosts, 0);
@@ -138,18 +137,6 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="is-base-scenario"
-                    checked={isBaseScenario}
-                    onChange={(e) => setIsBaseScenario(e.target.checked)}
-                    disabled={isSaving}
-                    className="rounded"
-                  />
-                  <Label htmlFor="is-base-scenario">Marcar como escenario base</Label>
-                </div>
-
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={handleSaveSimulation}
@@ -181,12 +168,11 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
           </Dialog>
 
           <Button
-            onClick={onCloneScenario}
-            disabled={!hasBaseScenario}
+            onClick={handleCloneForComparison}
             className="flex items-center gap-2"
           >
             <Copy className="w-4 h-4" />
-            Clonar para Comparar
+            Comparar Escenarios
           </Button>
         </div>
       </div>
@@ -246,6 +232,61 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
         </Card>
       </div>
 
+      {/* Información del préstamo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor BBP</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(results.bbpValue || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Bono del Buen Pagador
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monto del préstamo</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.loanAmount || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Incluye costos iniciales
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Intereses</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.totalInterest)}</div>
+            <p className="text-xs text-muted-foreground">
+              Total a pagar en intereses
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Amortización del capital</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.totalAmortization || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Capital pagado
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Resumen del préstamo */}
       <Card className="mb-8">
         <CardHeader>
@@ -266,13 +307,61 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
               <p className="text-2xl font-bold">{formatCurrency(results.financedAmount)}</p>
             </div>
           </div>
+
+          {/* Datos informativos (no afectan cálculos) */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div>
+              <p className="text-muted-foreground">Tipo de vivienda</p>
+              <p className="font-medium">{simulationData.tipoVivienda || 'No especificado'}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Producto inmobiliario</p>
+              <p className="font-medium">
+                {simulationData.ofertaInmobiliaria
+                  ? {
+                      departamento: 'Departamento',
+                      casa: 'Casa',
+                      terreno: 'Terreno',
+                      oficina: 'Oficina',
+                      local_comercial: 'Local comercial',
+                      otro: 'Otro',
+                    }[simulationData.ofertaInmobiliaria]
+                  : 'No especificado'}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Ubicación</p>
+              <p className="font-medium">
+                {[simulationData.departamento, simulationData.provincia, simulationData.distrito]
+                  .filter(Boolean)
+                  .join(' - ') || 'No especificada'}
+              </p>
+            </div>
+          </div>
+
           <Card className="mt-6">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Costo total en seguros y cargos periódicos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalPeriodicCosts)}</div>
-              <p className="text-xs text-muted-foreground">Suma acumulada de todos los costos periódicos del préstamo</p>
+              <div className="text-2xl font-bold mb-4">{formatCurrency(totalPeriodicCosts)}</div>
+              <p className="text-xs text-muted-foreground mb-4">Suma acumulada de todos los costos periódicos del préstamo</p>
+
+              {/* Desglose de costos */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Seguro de desgravamen</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.insuranceLife || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Seguro contra todo riesgo</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.insuranceRisk || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Portes / Gastos de adm.</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.periodicFees || 0)}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </CardContent>
