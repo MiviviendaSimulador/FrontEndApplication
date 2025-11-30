@@ -55,6 +55,8 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
     personaDesplazada: false,
     migrantesRetornados: false,
     personaConDiscapacidad: false,
+    // Oferta inmobiliaria (dato informativo)
+    ofertaInmobiliaria: 'departamento',
   });
 
   const [previewMetrics, setPreviewMetrics] = useState<{
@@ -398,21 +400,45 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                      <Label htmlFor="tipoVivienda">Tipo de vivienda</Label>
-                      <Select
-                          value={formData.tipoVivienda || 'Tradicional'}
-                          onValueChange={(value: 'Tradicional' | 'Sostenible') => updateFormData({ tipoVivienda: value })}
-                      >
-                          <SelectTrigger>
-                              <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="Tradicional">Tradicional</SelectItem>
-                              <SelectItem value="Sostenible">Sostenible</SelectItem>
-                          </SelectContent>
-                      </Select>
+                    <Label htmlFor="tipoVivienda">Tipo de vivienda</Label>
+                    <Select
+                      value={formData.tipoVivienda || 'Tradicional'}
+                      onValueChange={(value: 'Tradicional' | 'Sostenible') => updateFormData({ tipoVivienda: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Tradicional">Tradicional</SelectItem>
+                        <SelectItem value="Sostenible">Sostenible</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="ofertaInmobiliaria">Producto inmobiliario</Label>
+                    <Select
+                      value={formData.ofertaInmobiliaria || 'departamento'}
+                      onValueChange={(value: 'departamento' | 'casa' | 'terreno' | 'oficina' | 'local_comercial' | 'otro') =>
+                        updateFormData({ ofertaInmobiliaria: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccione el tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="departamento">Departamento</SelectItem>
+                        <SelectItem value="casa">Casa</SelectItem>
+                        <SelectItem value="terreno">Terreno</SelectItem>
+                        <SelectItem value="oficina">Oficina</SelectItem>
+                        <SelectItem value="local_comercial">Local comercial</SelectItem>
+                        <SelectItem value="otro">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">

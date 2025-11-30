@@ -307,6 +307,38 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
               <p className="text-2xl font-bold">{formatCurrency(results.financedAmount)}</p>
             </div>
           </div>
+
+          {/* Datos informativos (no afectan cálculos) */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+            <div>
+              <p className="text-muted-foreground">Tipo de vivienda</p>
+              <p className="font-medium">{simulationData.tipoVivienda || 'No especificado'}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Producto inmobiliario</p>
+              <p className="font-medium">
+                {simulationData.ofertaInmobiliaria
+                  ? {
+                      departamento: 'Departamento',
+                      casa: 'Casa',
+                      terreno: 'Terreno',
+                      oficina: 'Oficina',
+                      local_comercial: 'Local comercial',
+                      otro: 'Otro',
+                    }[simulationData.ofertaInmobiliaria]
+                  : 'No especificado'}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Ubicación</p>
+              <p className="font-medium">
+                {[simulationData.departamento, simulationData.provincia, simulationData.distrito]
+                  .filter(Boolean)
+                  .join(' - ') || 'No especificada'}
+              </p>
+            </div>
+          </div>
+
           <Card className="mt-6">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Costo total en seguros y cargos periódicos</CardTitle>

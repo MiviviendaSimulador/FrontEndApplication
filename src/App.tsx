@@ -45,6 +45,8 @@ export type SimulationData = {
   // ==============================
   // Datos de perfil del cliente
   // ==============================
+  // Producto / oferta inmobiliaria seleccionada (solo informativo, no afecta cálculos)
+  ofertaInmobiliaria?: 'departamento' | 'casa' | 'terreno' | 'oficina' | 'local_comercial' | 'otro';
   // Tipo de vivienda declarada por el usuario para el cálculo del BBP
   tipoVivienda?: 'Tradicional' | 'Sostenible';
   // Ingresos mensuales del hogar (brutos) utilizados para validar elegibilidad y bonos
