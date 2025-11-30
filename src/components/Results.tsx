@@ -61,7 +61,7 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
         setSaveSuccess('Simulación guardada exitosamente');
         setSimulationName('');
         setIsBaseScenario(false);
-        
+
         // Si es escenario base, también guardarlo localmente
         if (isBaseScenario) {
           onSaveBase();
@@ -271,8 +271,24 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
               <CardTitle className="text-sm font-medium">Costo total en seguros y cargos periódicos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(totalPeriodicCosts)}</div>
-              <p className="text-xs text-muted-foreground">Suma acumulada de todos los costos periódicos del préstamo</p>
+              <div className="text-2xl font-bold mb-4">{formatCurrency(totalPeriodicCosts)}</div>
+              <p className="text-xs text-muted-foreground mb-4">Suma acumulada de todos los costos periódicos del préstamo</p>
+
+              {/* Desglose de costos */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Seguro de desgravamen</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.insuranceLife || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Seguro contra todo riesgo</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.insuranceRisk || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Portes / Gastos de adm.</span>
+                  <span className="text-sm font-medium">{formatCurrency(results.periodicFees || 0)}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </CardContent>
