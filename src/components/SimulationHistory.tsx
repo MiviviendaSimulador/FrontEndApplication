@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, Eye, Trash2, AlertCircle, Clock, DollarSign, GitCompare, X } from 'lucide-react';
+import { Loader2, Eye, Trash2, AlertCircle, Clock, DollarSign, GitCompare, X, Edit } from 'lucide-react';
 import { getUserSimulations, deleteSimulation, SavedSimulation } from '../utils/supabase/client';
 import { SimulationData, CalculationResults } from '../App';
 
@@ -12,9 +12,10 @@ interface SimulationHistoryProps {
   userEmail: string;
   onLoadSimulation: (data: SimulationData, results: CalculationResults) => void;
   onCompareSimulations?: (simulations: SavedSimulation[]) => void;
+  onEditSimulation?: (data: SimulationData) => void;
 }
 
-export function SimulationHistory({ userEmail, onLoadSimulation, onCompareSimulations }: SimulationHistoryProps) {
+export function SimulationHistory({ userEmail, onLoadSimulation, onCompareSimulations, onEditSimulation }: SimulationHistoryProps) {
   const [simulations, setSimulations] = useState<SavedSimulation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -245,6 +246,17 @@ export function SimulationHistory({ userEmail, onLoadSimulation, onCompareSimula
                               <Eye className="w-3 h-3" />
                               Ver
                             </Button>
+                            {onEditSimulation && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEditSimulation(simulation.simulation_data)}
+                                className="flex items-center gap-1"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Editar
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"

@@ -12,9 +12,10 @@ import { Checkbox } from './ui/checkbox';
 
 interface NewSimulationProps {
   onSubmit: (data: SimulationData, results: CalculationResults) => void;
+  initialData?: SimulationData | null;
 }
 
-export function NewSimulation({ onSubmit }: NewSimulationProps) {
+export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
   const [formData, setFormData] = useState<SimulationData>({
     propertyPrice: 100000,
     downPayment: 5000,

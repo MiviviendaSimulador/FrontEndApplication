@@ -112,6 +112,7 @@ export default function App() {
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [baseScenario, setBaseScenario] = useState<{ data: SimulationData; results: CalculationResults } | null>(null);
   const [compareSimulations, setCompareSimulations] = useState<SavedSimulation[]>([]);
+  const [editData, setEditData] = useState<SimulationData | null>(null);
 
   const handleLogin = (userData: { name: string; email: string }) => {
     setUser(userData);
@@ -124,12 +125,7 @@ export default function App() {
     setSimulationData(null);
     setResults(null);
     setBaseScenario(null);
-  };
-
-  const handleSimulationSubmit = (data: SimulationData, calculatedResults: CalculationResults) => {
-    setSimulationData(data);
-    setResults(calculatedResults);
-    setCurrentView('results');
+    setEditData(null);
   };
 
   const handleLoadSimulation = (data: SimulationData, calculatedResults: CalculationResults) => {
@@ -155,6 +151,18 @@ export default function App() {
     setCurrentView('multi-compare');
   };
 
+  const handleEditSimulation = (data: SimulationData) => {
+    setEditData(data);
+    setCurrentView('simulation');
+  };
+
+  const handleSimulationSubmit = (data: SimulationData, calculatedResults: CalculationResults) => {
+    setSimulationData(data);
+    setResults(calculatedResults);
+    setEditData(null); // Clear edit data after submission
+    setCurrentView('results');
+  };
+
   if (!user) {
     return <LoginRegister onLogin={handleLogin} />;
   }
@@ -170,7 +178,10 @@ export default function App() {
       
       <main className="pt-16">
         {currentView === 'simulation' && (
-          <NewSimulation onSubmit={handleSimulationSubmit} />
+          <NewSimulation 
+            onSubmit={handleSimulationSubmit}
+            initialData={editData}
+          />
         )}
 
         {currentView === 'history' && user && (
@@ -178,6 +189,7 @@ export default function App() {
             userEmail={user.email}
             onLoadSimulation={handleLoadSimulation}
             onCompareSimulations={handleCompareMultiple}
+            onEditSimulation={handleEditSimulation}
           />
         )}
         
