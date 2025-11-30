@@ -90,6 +90,9 @@ export type CalculationResults = {
   insuranceRisk?: number; // suma seguros riesgo
   periodicFees?: number; // suma portes + gastos + comisión
   totalPeriodicCosts?: number; // suma total periódica acumulada
+  bbpValue?: number; // Valor del Bono del Buen Pagador
+  loanAmount?: number; // Monto del préstamo (incluye costos iniciales)
+  totalAmortization?: number; // Amortización total del capital
 };
 
 export type ScheduleRow = {

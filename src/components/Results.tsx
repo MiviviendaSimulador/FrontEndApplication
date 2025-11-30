@@ -246,6 +246,61 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
         </Card>
       </div>
 
+      {/* Información del préstamo */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor BBP</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">{formatCurrency(results.bbpValue || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Bono del Buen Pagador
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Monto del préstamo</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.loanAmount || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Incluye costos iniciales
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Intereses</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.totalInterest)}</div>
+            <p className="text-xs text-muted-foreground">
+              Total a pagar en intereses
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Amortización del capital</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(results.totalAmortization || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Capital pagado
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Resumen del préstamo */}
       <Card className="mb-8">
         <CardHeader>

@@ -73,6 +73,9 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
   const totalPeriodicFees = schedule.reduce((s, r) => s + r.periodicFees, 0);
   const totalPeriodicCosts = schedule.reduce((s, r) => s + r.totalPeriodicCosts, 0);
 
+  // Calcular amortización total del capital
+  const totalAmortization = schedule.reduce((sum, row) => sum + row.amortization, 0);
+
   return {
     monthlyPayment,
     totalInterest,
@@ -85,7 +88,10 @@ export async function calculateFinancialMetrics(data: SimulationData): Promise<C
     insuranceLife: totalInsuranceLife,
     insuranceRisk: totalInsuranceRisk,
     periodicFees: totalPeriodicFees,
-    totalPeriodicCosts: totalPeriodicCosts
+    totalPeriodicCosts: totalPeriodicCosts,
+    bbpValue: bbp,
+    loanAmount: loanAmount,
+    totalAmortization: totalAmortization
   };
 }
 
