@@ -3,8 +3,10 @@ import { LoginRegister } from './components/LoginRegister';
 import { NewSimulation } from './components/NewSimulation';
 import { Results } from './components/Results';
 import { CompareScenarios } from './components/CompareScenarios';
+import { MultiCompare } from './components/MultiCompare';
 import { SimulationHistory } from './components/SimulationHistory';
 import { Navigation } from './components/Navigation';
+import { SavedSimulation } from './utils/supabase/client';
 
 export type SimulationData = {
   propertyPrice: number;
@@ -31,22 +33,15 @@ export type SimulationData = {
   // Tasa de descuento (Cok) para VAN
   discountRate?: number; // Tasa de descuento TEA (Cok) %
 
-    // Nuevos campos para BBPCalc
-    tipoVivienda?: 'Tradicional' | 'Sostenible';  // Por defecto 'Tradicional'
-    ingresos?: number;  // Ingresos del usuario
-    adultoMayor?: boolean;
-    personaDesplazada?: boolean;
-    migrantesRetornados?: boolean;
-    personaConDiscapacidad?: boolean;
-
-    // Cargos actualizados
-    seguroDesgravamenRate?: number; // % anual 
-    seguroRiesgoRate?: number; // % anual 
-    portesPerPeriod?: number; // monto fijo por periodo
-    adminFeesPerPeriod?: number; // gastos administración por periodo
-    periodicCommissionPerPeriod?: number; // comisión periódica por periodo
-    periodicCostFrequencyPerYear?: number; // 12 mensual, 24 quincenal, 52 semanal
-    periodicRatesArePerPeriod?: boolean; // si true, tasas ingresadas ya son por período
+  // Cargos actualizados
+  seguroDesgravamenRate?: number; // % anual 
+  seguroRiesgoRate?: number; // % anual 
+  portesPerPeriod?: number; // monto fijo por periodo
+  adminFeesPerPeriod?: number; // gastos administración por periodo
+  periodicCommissionPerPeriod?: number; // comisión periódica por periodo
+  periodicCostFrequencyPerYear?: number; // 12 mensual, 24 quincenal, 52 semanal
+  periodicRatesArePerPeriod?: boolean; // si true, tasas ingresadas ya son por período
+  
   // ==============================
   // Datos de perfil del cliente
   // ==============================
@@ -111,11 +106,12 @@ export type ScheduleRow = {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history' | 'multi-compare'>('login');
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [simulationData, setSimulationData] = useState<SimulationData | null>(null);
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [baseScenario, setBaseScenario] = useState<{ data: SimulationData; results: CalculationResults } | null>(null);
+  const [compareSimulations, setCompareSimulations] = useState<SavedSimulation[]>([]);
 
   const handleLogin = (userData: { name: string; email: string }) => {
     setUser(userData);
@@ -154,6 +150,11 @@ export default function App() {
     }
   };
 
+  const handleCompareMultiple = (simulations: SavedSimulation[]) => {
+    setCompareSimulations(simulations);
+    setCurrentView('multi-compare');
+  };
+
   if (!user) {
     return <LoginRegister onLogin={handleLogin} />;
   }
@@ -176,6 +177,7 @@ export default function App() {
           <SimulationHistory 
             userEmail={user.email}
             onLoadSimulation={handleLoadSimulation}
+            onCompareSimulations={handleCompareMultiple}
           />
         )}
         
@@ -194,6 +196,13 @@ export default function App() {
           <CompareScenarios 
             baseScenario={baseScenario}
             onBack={() => setCurrentView('results')}
+          />
+        )}
+
+        {currentView === 'multi-compare' && compareSimulations.length >= 2 && (
+          <MultiCompare 
+            simulations={compareSimulations}
+            onBack={() => setCurrentView('history')}
           />
         )}
       </main>

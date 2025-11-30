@@ -4,20 +4,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
-import { Loader2, Eye, Trash2, AlertCircle, Clock, DollarSign } from 'lucide-react';
+import { Loader2, Eye, Trash2, AlertCircle, Clock, DollarSign, GitCompare, X } from 'lucide-react';
 import { getUserSimulations, deleteSimulation, SavedSimulation } from '../utils/supabase/client';
 import { SimulationData, CalculationResults } from '../App';
 
 interface SimulationHistoryProps {
   userEmail: string;
   onLoadSimulation: (data: SimulationData, results: CalculationResults) => void;
+  onCompareSimulations?: (simulations: SavedSimulation[]) => void;
 }
 
-export function SimulationHistory({ userEmail, onLoadSimulation }: SimulationHistoryProps) {
+export function SimulationHistory({ userEmail, onLoadSimulation, onCompareSimulations }: SimulationHistoryProps) {
   const [simulations, setSimulations] = useState<SavedSimulation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadSimulations();
@@ -60,6 +63,35 @@ export function SimulationHistory({ userEmail, onLoadSimulation }: SimulationHis
     onLoadSimulation(simulation.simulation_data, simulation.results);
   };
 
+  const toggleCompareSelection = (simulationId: string) => {
+    const newSelection = new Set(selectedForCompare);
+    if (newSelection.has(simulationId)) {
+      newSelection.delete(simulationId);
+    } else {
+      if (newSelection.size < 4) { // Limit to 4 simulations for comparison
+        newSelection.add(simulationId);
+      }
+    }
+    setSelectedForCompare(newSelection);
+  };
+
+  const handleStartCompare = () => {
+    setCompareMode(true);
+    setSelectedForCompare(new Set());
+  };
+
+  const handleCancelCompare = () => {
+    setCompareMode(false);
+    setSelectedForCompare(new Set());
+  };
+
+  const handleCompare = () => {
+    if (selectedForCompare.size >= 2 && onCompareSimulations) {
+      const selectedSims = simulations.filter(sim => selectedForCompare.has(sim.id));
+      onCompareSimulations(selectedSims);
+    }
+  };
+
   const formatCurrency = (amount: number, currency: string) => {
     const symbol = currency === 'PEN' ? 'S/' : '$';
     return `${symbol}${amount.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -88,11 +120,42 @@ export function SimulationHistory({ userEmail, onLoadSimulation }: SimulationHis
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <h1>Historial de Simulaciones</h1>
-        <p className="text-muted-foreground mt-2">
-          Revise y gestione sus simulaciones guardadas
-        </p>
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <h1>Historial de Simulaciones</h1>
+          <p className="text-muted-foreground mt-2">
+            {compareMode 
+              ? `Seleccione 2-4 simulaciones para comparar (${selectedForCompare.size} seleccionadas)`
+              : 'Revise y gestione sus simulaciones guardadas'
+            }
+          </p>
+        </div>
+        {!compareMode && simulations.length >= 2 && (
+          <Button onClick={handleStartCompare} className="flex items-center gap-2">
+            <GitCompare className="w-4 h-4" />
+            Comparar Simulaciones
+          </Button>
+        )}
+        {compareMode && (
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleCompare} 
+              disabled={selectedForCompare.size < 2}
+              className="flex items-center gap-2"
+            >
+              <GitCompare className="w-4 h-4" />
+              Comparar ({selectedForCompare.size})
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleCancelCompare}
+              className="flex items-center gap-2"
+            >
+              <X className="w-4 h-4" />
+              Cancelar
+            </Button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -160,29 +223,44 @@ export function SimulationHistory({ userEmail, onLoadSimulation }: SimulationHis
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLoad(simulation)}
-                          className="flex items-center gap-1"
-                        >
-                          <Eye className="w-3 h-3" />
-                          Ver
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(simulation.id)}
-                          disabled={deletingId === simulation.id}
-                          className="flex items-center gap-1 hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          {deletingId === simulation.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3 h-3" />
-                          )}
-                          Eliminar
-                        </Button>
+                        {compareMode ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedForCompare.has(simulation.id)}
+                              onChange={() => toggleCompareSelection(simulation.id)}
+                              disabled={!selectedForCompare.has(simulation.id) && selectedForCompare.size >= 4}
+                              className="w-4 h-4 rounded"
+                            />
+                            <span className="text-sm text-muted-foreground">Seleccionar</span>
+                          </div>
+                        ) : (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleLoad(simulation)}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" />
+                              Ver
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDelete(simulation.id)}
+                              disabled={deletingId === simulation.id}
+                              className="flex items-center gap-1 hover:bg-destructive hover:text-destructive-foreground"
+                            >
+                              {deletingId === simulation.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3 h-3" />
+                              )}
+                              Eliminar
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

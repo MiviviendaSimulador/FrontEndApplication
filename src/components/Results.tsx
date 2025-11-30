@@ -24,7 +24,6 @@ interface ResultsProps {
 export function Results({ results, simulationData, onSaveBase, onCloneScenario, hasBaseScenario, userEmail }: ResultsProps) {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [simulationName, setSimulationName] = useState('');
-  const [isBaseScenario, setIsBaseScenario] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState('');
@@ -54,18 +53,12 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
         name: simulationName.trim(),
         simulation_data: simulationData,
         results: results,
-        is_base_scenario: isBaseScenario
+        is_base_scenario: false // No longer needed for comparison
       });
 
       if (savedSimulation) {
         setSaveSuccess('Simulación guardada exitosamente');
         setSimulationName('');
-        setIsBaseScenario(false);
-
-        // Si es escenario base, también guardarlo localmente
-        if (isBaseScenario) {
-          onSaveBase();
-        }
 
         setTimeout(() => {
           setSaveDialogOpen(false);
@@ -79,6 +72,12 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCloneForComparison = () => {
+    // Auto-save current scenario as base for quick comparison
+    onSaveBase();
+    onCloneScenario();
   };
 
   const totalPeriodicCosts = results.totalPeriodicCosts || results.schedule.reduce((s, r) => s + r.totalPeriodicCosts, 0);
@@ -138,18 +137,6 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="is-base-scenario"
-                    checked={isBaseScenario}
-                    onChange={(e) => setIsBaseScenario(e.target.checked)}
-                    disabled={isSaving}
-                    className="rounded"
-                  />
-                  <Label htmlFor="is-base-scenario">Marcar como escenario base</Label>
-                </div>
-
                 <div className="flex gap-2 pt-4">
                   <Button
                     onClick={handleSaveSimulation}
@@ -181,12 +168,11 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
           </Dialog>
 
           <Button
-            onClick={onCloneScenario}
-            disabled={!hasBaseScenario}
+            onClick={handleCloneForComparison}
             className="flex items-center gap-2"
           >
             <Copy className="w-4 h-4" />
-            Clonar para Comparar
+            Comparar Escenarios
           </Button>
         </div>
       </div>
