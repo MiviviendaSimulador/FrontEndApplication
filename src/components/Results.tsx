@@ -321,7 +321,7 @@ export function Results({ results, simulationData, onSaveBase, onCloneScenario, 
                     <TableCell className="text-right">{row.periodicFees ? formatCurrency(row.periodicFees) : formatCurrency(0)}</TableCell>
                     <TableCell className="text-right">{formatCurrency(row.totalPeriodicCosts)}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency(row.monthlyPayment)}
+                      {formatCurrency(row.monthlyPayment - row.totalPeriodicCosts)}
                     </TableCell>
                     <TableCell className="text-right">{formatCurrency(row.finalBalance)}</TableCell>
                   </TableRow>
