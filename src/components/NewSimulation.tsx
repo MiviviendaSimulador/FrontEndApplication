@@ -57,6 +57,7 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
     personaConDiscapacidad: false,
     // Oferta inmobiliaria (dato informativo)
     ofertaInmobiliaria: 'departamento',
+    tipoOperacion: 'MiVivienda',
   });
 
   const [previewMetrics, setPreviewMetrics] = useState<{
@@ -354,6 +355,38 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
                     </Select>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tipoOperacion">Tipo de Operación</Label>
+
+                  <Select
+                    value={formData.tipoOperacion ?? 'MiVivienda'}
+                    onValueChange={(value: 'MiVivienda' | 'MiViviendaBCP') => {
+                      updateFormData({ tipoOperacion: value });
+
+                      if (value === 'MiViviendaBCP') {
+                        // Se fija la tasa segun las politicas del credito MiVivienda BCP
+                        if (formData.currency === 'PEN') {
+                          updateFormData({ rate: 13.9, rateType: 'TEA' });
+                        } else if (formData.currency === 'USD') {
+                          updateFormData({ rate: 11.9, rateType: 'TEA' });
+                        }
+                      } else {
+                        // Volver al estado normal (no fijar nada)
+                        // No se hace nada, el usuario puede editar nuevamente la tasa
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione tipo de operación" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MiVivienda">MiVivienda</SelectItem>
+                      <SelectItem value="MiViviendaBCP">MiVivienda BCP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
               </CardContent>
             </Card>
 
@@ -385,10 +418,17 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
 
                   <div className="space-y-2">
                     <Label htmlFor="currency">Moneda</Label>
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(value: 'PEN' | 'USD') => updateFormData({ currency: value })}
-                    >
+                      <Select
+                        value={formData.currency}
+                        onValueChange={(value: 'PEN' | 'USD') => {
+                          updateFormData({ currency: value });
+
+                          if (formData.tipoOperacion === 'MiViviendaBCP') {
+                            if (value === 'PEN') updateFormData({ rate: 13.9, rateType: 'TEA' });
+                            if (value === 'USD') updateFormData({ rate: 11.9, rateType: 'TEA' });
+                          }
+                        }}
+                      >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
