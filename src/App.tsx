@@ -6,6 +6,7 @@ import { CompareScenarios } from './components/CompareScenarios';
 import { MultiCompare } from './components/MultiCompare';
 import { SimulationHistory } from './components/SimulationHistory';
 import { Navigation } from './components/Navigation';
+import { FAQ } from './components/FAQ';
 import { SavedSimulation } from './utils/supabase/client';
 
 export type SimulationData = {
@@ -108,7 +109,7 @@ export type ScheduleRow = {
 };
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history' | 'multi-compare'>('login');
+  const [currentView, setCurrentView] = useState<'login' | 'simulation' | 'results' | 'compare' | 'history' | 'multi-compare' | 'faq'>('login');
   const [user, setUser] = useState<{ name: string; email: string } | null>(null);
   const [simulationData, setSimulationData] = useState<SimulationData | null>(null);
   const [results, setResults] = useState<CalculationResults | null>(null);
@@ -172,7 +173,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation 
-        currentView={currentView as 'simulation' | 'results' | 'compare' | 'history'}
+        currentView={currentView as 'simulation' | 'results' | 'compare' | 'history' | 'faq'}
         onNavigate={setCurrentView}
         user={user}
         onLogout={handleLogout}
@@ -219,6 +220,8 @@ export default function App() {
             onBack={() => setCurrentView('history')}
           />
         )}
+
+        {currentView === 'faq' && <FAQ />}
       </main>
     </div>
   );

@@ -1,9 +1,9 @@
 import { Button } from './ui/button';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, HelpCircle } from 'lucide-react';
 
 interface NavigationProps {
-  currentView: 'simulation' | 'results' | 'compare' | 'history';
-  onNavigate: (view: 'simulation' | 'results' | 'compare' | 'history') => void;
+  currentView: 'simulation' | 'results' | 'compare' | 'history' | 'faq';
+  onNavigate: (view: 'simulation' | 'results' | 'compare' | 'history' | 'faq') => void;
   user: { name: string; email: string };
   onLogout: () => void;
 }
@@ -49,6 +49,14 @@ export function Navigation({ currentView, onNavigate, user, onLogout }: Navigati
                   disabled={currentView === 'simulation' || currentView === 'results' || currentView === 'history'}
                 >
                   Comparar
+                </Button>
+                <Button
+                  variant={currentView === 'faq' ? 'default' : 'ghost'}
+                  onClick={() => onNavigate('faq')}
+                  className="px-3 py-2"
+                >
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  FAQ
                 </Button>
               </div>
             </div>
