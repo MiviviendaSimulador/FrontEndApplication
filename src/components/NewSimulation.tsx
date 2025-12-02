@@ -5,10 +5,19 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Separator } from './ui/separator';
-import { Calculator } from 'lucide-react';
+import { Calculator, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { SimulationData, CalculationResults } from '../App';
 import { calculateFinancialMetrics, calculateBBP } from './FinancialCalculations';
 import { Checkbox } from './ui/checkbox';
+
+const propertyData = [
+{ value: 'departamento', label: 'Departamento', image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=400' },
+  { value: 'casa', label: 'Casa', image: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400' },
+  { value: 'terreno', label: 'Terreno', image: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=400' },
+  { value: 'oficina', label: 'Oficina', image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400' },
+  { value: 'local_comercial', label: 'Local Comercial', image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400' },
+  { value: 'otro', label: 'Otro', image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=400' },
+] as const;
 
 interface NewSimulationProps {
   onSubmit: (data: SimulationData, results: CalculationResults) => void;
@@ -16,6 +25,8 @@ interface NewSimulationProps {
 }
 
 export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
+  const [startIndex, setStartIndex] = useState(0);
+
   const [formData, setFormData] = useState<SimulationData>({
     propertyPrice: 100000,
     downPayment: 5000,
@@ -418,25 +429,84 @@ export function NewSimulation({ onSubmit, initialData }: NewSimulationProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="ofertaInmobiliaria">Producto inmobiliario</Label>
-                    <Select
-                      value={formData.ofertaInmobiliaria || 'departamento'}
-                      onValueChange={(value: 'departamento' | 'casa' | 'terreno' | 'oficina' | 'local_comercial' | 'otro') =>
-                        updateFormData({ ofertaInmobiliaria: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccione el tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="departamento">Departamento</SelectItem>
-                        <SelectItem value="casa">Casa</SelectItem>
-                        <SelectItem value="terreno">Terreno</SelectItem>
-                        <SelectItem value="oficina">Oficina</SelectItem>
-                        <SelectItem value="local_comercial">Local comercial</SelectItem>
-                        <SelectItem value="otro">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Producto inmobiliario</Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+                          setStartIndex((prev) => Math.max(0, prev - 1))
+                        }
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+
+<div className="flex gap-4 overflow-hidden flex-1">
+{propertyData
+                          .slice(startIndex, startIndex + 2)
+                          .map((item) => {
+                            const isSelected = formData.ofertaInmobiliaria === item.value;
+                            return (
+                              <button
+                                key={item.value}
+                                type="button"
+                                onClick={() => updateFormData({ ofertaInmobiliaria: item.value })}
+                                className="focus:outline-none"
+                              >
+                                <div
+                                  className={
+'relative w-48 h-40 overflow-hidden rounded-lg bg-background shadow-sm transition-all duration-300 ring-offset-background cursor-pointer flex flex-col flex-none ' +
+                                    (isSelected
+                                      ? 'ring-4 ring-primary shadow-2xl transform scale-110 -translate-y-2 bg-primary/20 opacity-100'
+                                      : 'ring-1 ring-gray-200 opacity-50 hover:opacity-80 hover:scale-105')
+                                  }
+                                >
+<div className="w-full h-28 overflow-hidden">
+                                    <img
+                                      src={item.image}
+                                      alt={item.label}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                  <div className="px-1 pb-1 pt-0.5 flex-1 flex items-center justify-center">
+                                    <p
+                                      className={
+                                        'text-xs text-center leading-tight ' +
+                                        (isSelected
+                                          ? 'font-bold text-primary'
+                                          : 'font-normal text-muted-foreground')
+                                      }
+                                    >
+                                      {item.label}
+                                    </p>
+                                  </div>
+
+{isSelected && (
+                                    <CheckCircle2 className="absolute top-2 right-2 w-8 h-8 text-primary bg-white rounded-full drop-shadow-xl" />
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() =>
+setStartIndex((prev) =>
+                            Math.min(propertyData.length - 2, prev + 1),
+                          )
+                        }
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
